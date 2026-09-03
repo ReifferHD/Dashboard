@@ -373,10 +373,13 @@
 
 /* ---------- Sichtbare Fehleranzeige ---------- */
 window.addEventListener("error", function(e){
+  // Nur echte, zuordenbare Fehler anzeigen - generische Meldungen aus
+  // Fremd-Scripten ("Script error." ohne Details) ignorieren.
+  if(!e.message || e.message.indexOf("Script error") === 0 || (!e.filename && !e.lineno)) return;
   var b = document.getElementById("errBanner");
   if(b){
     b.hidden = false;
-    b.textContent = "Script-Fehler: " + (e.message || "unbekannt") + (e.lineno ? " (Zeile " + e.lineno + ")" : "");
+    b.textContent = "Script-Fehler: " + e.message + (e.lineno ? " (Zeile " + e.lineno + ")" : "");
   }
 });
 
