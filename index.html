@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard</title>
+<meta name="theme-color" content="#14191D">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABkElEQVR4nO2bsQ3CMBBFHYsZqJBoaBiBmkWyBkKiQEKskUWoGSFNGqRULAFVosjE9tmBfOy718FZ0f/fFytR7EIFsNpsXyHjUbRNXVDHegemYtqGLwztKqZuXim/h9F0cjA+xlg3fHRAruaVGvemfQNyw/ToXAM40AfAYfY7hl61+QcXOs9yC6AFoCk4tv8Q9h2wQAsIYV1drbVHeYi6ZjId4DJPqdtIIgCquZgQkgjgl0gAaAFoJAC0ADTsA4A8CJWXm7VWHfczKgF0gMs8pf5tZg2Aam7OENivARIAWgAaCQAtAI0EgBaARgJAC0Az6V3gfl5aa7vTc8qlZyO6A1zmKfV/ISoAqrkUQmC/BkgAaAFoJAC0ADQSAFoAGgkALQCNBIAWgEYCQAtAExUA9V3fHEf97meOo26AitkoFd0BvhBsdV8ItrrPXOwuMdkoGXLAKDfapi5kEUQLQNF1vh7+4EjfAZxCGHpldwuYE61dxdwgnRvMNQSbL6fZXB6SXJOa9eFpSjcHtXsqYYTcxm9soHLnuFby4wAAAABJRU5ErkJggg==">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14191D; --panel:#1C2429; --panel-2:#212B31; --ink:#E7ECEE; --ink-soft:#8FA0A8;
+    --line:#2C373E; --accent:#3BC4B0; --accent-soft:#173B37;
+    --warn:#E3A63F; --warn-soft:#3A2E14; --neg:#E4685C; --neg-soft:#3B211E;
+    --paid:#7CA9E6; --paid-soft:#1E2C40;
+    --radius:8px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  [hidden]{display:none !important;}
+  html{font-size:15px;}
+  body{
+    font-family:"Archivo", system-ui, sans-serif;
+    background:var(--bg); color:var(--ink);
+    min-height:100vh; padding:1.25rem;
+    max-width:1150px; margin:0 auto;
+  }
+  h1{font-size:1.3rem; font-weight:700; letter-spacing:-0.01em;}
+  h2{font-size:0.95rem; font-weight:700; margin-bottom:0.75rem;}
+  .muted{color:var(--ink-soft);}
+  .small{font-size:0.8rem;}
+
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:0.75rem; margin-bottom:0.9rem;
+  }
+  .menuwrap{position:relative;}
+  #btnMenu{
+    background:none; border:1px solid var(--line); color:var(--ink-soft);
+    width:2.1rem; height:2.1rem; border-radius:50%; font-size:1rem; padding:0;
+  }
+  #btnMenu:hover{color:var(--ink); border-color:var(--ink-soft);}
+  .menu{
+    position:absolute; right:0; top:2.5rem; z-index:20;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:var(--radius);
+    padding:0.5rem; min-width:230px; box-shadow:0 8px 24px rgba(0,0,0,0.45);
+  }
+  .menu button{
+    display:block; width:100%; text-align:left; border:none; background:none;
+    color:var(--ink); padding:0.5rem 0.6rem; border-radius:5px; font-weight:500;
+  }
+  .menu button:hover{background:var(--panel);}
+  .menu .status{
+    font-size:0.75rem; color:var(--ink-soft); padding:0.5rem 0.6rem;
+    border-top:1px solid var(--line); margin-top:0.35rem;
+  }
+
+  .banner{
+    border-radius:var(--radius); padding:0.6rem 0.9rem; margin-bottom:0.75rem;
+    font-size:0.85rem; display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
+  }
+  .banner.info{background:var(--paid-soft); color:var(--paid);}
+  .banner.error{background:var(--neg-soft); color:var(--neg); font-weight:600;}
+  .banner button{border-color:transparent; background:rgba(255,255,255,0.08); color:inherit;}
+  .banner button:hover{background:rgba(255,255,255,0.15); border-color:transparent;}
+
+  nav{
+    display:flex; gap:0.25rem; border-bottom:2px solid var(--line);
+    margin-bottom:1.25rem; flex-wrap:wrap;
+  }
+  nav button{
+    border:none; background:none; border-radius:0;
+    padding:0.55rem 0.9rem; font-weight:600; font-size:0.9rem;
+    color:var(--ink-soft); border-bottom:3px solid transparent; margin-bottom:-2px;
+  }
+  nav button:hover{color:var(--ink);}
+  nav button.active{color:var(--accent); border-bottom-color:var(--accent);}
+  .tab{display:none;}
+  .tab.active{display:block;}
+
+  .summary{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:1px; background:var(--line); border:1px solid var(--line);
+    border-radius:var(--radius); overflow:hidden; margin-bottom:1.25rem;
+  }
+  .summary .cell{background:var(--panel); padding:0.8rem 1rem;}
+  .summary .cell b{display:block; font-size:1.2rem; font-weight:700; margin-top:0.15rem;}
+  .summary .cell.neg b{color:var(--neg);}
+  .summary .cell.warn b{color:var(--warn);}
+  .summary .cell.accent b{color:var(--accent);}
+
+  .panel{
+    background:var(--panel); border:1px solid var(--line);
+    border-radius:var(--radius); padding:1rem;
+  }
+
+  label{display:block; font-size:0.78rem; color:var(--ink-soft); margin-bottom:0.2rem;}
+  input,select{
+    width:100%; padding:0.45rem 0.55rem; font:inherit; font-size:0.9rem;
+    border:1px solid var(--line); border-radius:5px;
+    background:var(--panel-2); color:var(--ink);
+  }
+  input::placeholder{color:#5E6F78;}
+  select option{background:var(--panel-2);}
+  input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
+  .field{margin-bottom:0.65rem;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;}
+  @media(max-width:640px){ .row2{grid-template-columns:1fr;} }
+  .narrow{max-width:620px;}
+  .checkrow{display:flex; gap:1.25rem; margin:0.35rem 0 0.65rem;}
+  .checkrow label{
+    display:flex; align-items:center; gap:0.4rem; font-size:0.85rem;
+    color:var(--ink); margin:0; cursor:pointer;
+  }
+  .checkrow input{width:auto; accent-color:var(--accent);}
+
+  button{
+    font:inherit; font-size:0.85rem; font-weight:600; cursor:pointer;
+    border:1px solid var(--line); border-radius:5px; background:var(--panel-2);
+    color:var(--ink); padding:0.45rem 0.8rem;
+  }
+  button:hover{border-color:var(--ink-soft);}
+  button.primary{background:var(--accent); border-color:var(--accent); color:#0D1A18;}
+  button.primary:hover{background:#33AC9B;}
+  button.tiny{padding:0.15rem 0.45rem; font-size:0.75rem; font-weight:500;}
+  button.danger{color:var(--neg);}
+
+  .accgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:0.75rem;}
+  .acc{
+    border:1px solid var(--line); border-radius:var(--radius);
+    padding:0.75rem 0.85rem; background:var(--panel);
+  }
+  .acc .top{display:flex; justify-content:space-between; align-items:baseline; gap:0.5rem;}
+  .acc .name{font-weight:700;}
+  .acc dl{
+    display:grid; grid-template-columns:auto 1fr; gap:0.1rem 0.6rem;
+    margin-top:0.45rem; font-size:0.82rem;
+  }
+  .acc dt{color:var(--ink-soft);}
+  .acc dd{text-align:right; font-variant-numeric:tabular-nums;}
+  .acc dd.open{color:var(--warn); font-weight:700;}
+  .acc .btns{display:flex; gap:0.35rem; margin-top:0.5rem; flex-wrap:wrap;}
+
+  .filters{display:flex; flex-wrap:wrap; gap:0.6rem; margin-bottom:0.8rem;}
+  .filters>*{width:auto; flex:1 1 140px;}
+
+  table{width:100%; border-collapse:collapse; font-size:0.85rem;}
+  th{
+    text-align:left; font-size:0.73rem; font-weight:600; color:var(--ink-soft);
+    border-bottom:2px solid var(--ink-soft); padding:0.35rem 0.45rem; white-space:nowrap;
+  }
+  td{border-bottom:1px solid var(--line); padding:0.42rem 0.45rem; vertical-align:middle;}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+  td .sub{display:block; font-size:0.72rem; color:var(--ink-soft);}
+  tr.storno td{color:var(--ink-soft);}
+  tr.storno td.strike{text-decoration:line-through;}
+  .pos{color:var(--accent);}
+  .negv{color:var(--neg);}
+  .badge{
+    display:inline-block; font-size:0.72rem; font-weight:600;
+    padding:0.1rem 0.45rem; border-radius:4px; white-space:nowrap;
+  }
+  .badge.storno{background:var(--neg-soft); color:var(--neg);}
+  .badge.paid{background:var(--paid-soft); color:var(--paid);}
+  .badge.open{background:var(--warn-soft); color:var(--warn);}
+  .flag{
+    display:inline-block; font-size:0.72rem; font-weight:600; cursor:pointer;
+    padding:0.1rem 0.4rem; border-radius:4px; border:1px solid var(--line);
+    color:var(--ink-soft); background:none; margin-right:0.25rem;
+  }
+  .flag.on{background:var(--accent-soft); color:var(--accent); border-color:transparent;}
+  .rowbtns{display:flex; gap:0.3rem; justify-content:flex-end; flex-wrap:wrap;}
+  .empty{padding:1.5rem; text-align:center; color:var(--ink-soft);}
+  tfoot td{font-weight:700; border-bottom:none; border-top:2px solid var(--ink-soft);}
+
+  .modal{position:fixed; inset:0; background:rgba(0,0,0,0.65); display:flex;
+    align-items:center; justify-content:center; z-index:50; padding:1rem;}
+  .modal .box{background:var(--panel); border:1px solid var(--line);
+    border-radius:var(--radius); padding:1.1rem; max-width:540px; width:100%;}
+  .modal textarea{width:100%; min-height:130px; padding:0.45rem 0.55rem; font-size:0.8rem;
+    font-family:ui-monospace, monospace; border:1px solid var(--line); border-radius:5px;
+    background:var(--panel-2); color:var(--ink); resize:vertical;}
+  .modal .btnrow{display:flex; gap:0.5rem; margin-top:0.8rem; flex-wrap:wrap;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Dashboard</h1>
+  <div class="menuwrap">
+    <button id="btnMenu" title="Einstellungen" aria-label="Einstellungen">&#9881;</button>
+    <div class="menu" id="menu" hidden>
+      <button id="btnLinkFile" hidden>Datendatei verknüpfen / ändern</button>
+      <button id="btnExport">Backup exportieren</button>
+      <button id="btnImport">Backup importieren</button>
+      <input type="file" id="fileImport" accept=".json" hidden>
+      <button id="btnSyncSetup">Cloud-Sync einrichten</button>
+      <div class="status" id="storageStatus"></div>
+      <div class="status" id="syncStatus" hidden></div>
+    </div>
+  </div>
+</header>
+
+<div class="banner error" id="errBanner" hidden></div>
+
+<div class="banner info" id="setupBanner" hidden>
+  <span>Einmalig einrichten: Speicherort wählen, danach wird alles automatisch gespeichert und geladen.</span>
+  <button class="tiny" id="btnSetup">Speicherort wählen</button>
+  <button class="tiny" id="btnSetupLater">Später</button>
+</div>
+
+<div class="banner info" id="loadBanner" hidden>
+  <span>Gespeicherte Daten gefunden.</span>
+  <button class="tiny" id="btnGrantLoad">Laden</button>
+</div>
+
+<nav>
+  <button data-tab="uebersicht" class="active">Übersicht</button>
+  <button data-tab="eintragen">Produkt eintragen</button>
+  <button data-tab="produkte">Produkte</button>
+  <button data-tab="accounts">Accounts</button>
+</nav>
+
+<section class="tab active" id="tab-uebersicht">
+  <div class="summary" id="summary"></div>
+  <h2>Auszahlungen pro Account</h2>
+  <div class="accgrid" id="accOverview"></div>
+</section>
+
+<section class="tab" id="tab-eintragen">
+  <div class="panel narrow">
+    <h2 id="prodFormTitle">Produkt eintragen</h2>
+    <div class="row2">
+      <div class="field">
+        <label for="pAsin">ASIN</label>
+        <input id="pAsin" placeholder="z. B. B0C1234XYZ">
+      </div>
+      <div class="field">
+        <label for="pName">Produktname (optional)</label>
+        <input id="pName" placeholder="z. B. Lego Set 42115">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="pAccount">Gekauft über Account</label>
+        <select id="pAccount"></select>
+      </div>
+      <div class="field">
+        <label for="pDate">Kaufdatum</label>
+        <input id="pDate" type="date">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="pBuy">Einkaufspreis (€)</label>
+        <input id="pBuy" type="number" min="0" step="0.01" placeholder="0,00">
+      </div>
+      <div class="field">
+        <label for="pPrice">Verkaufspreis (€)</label>
+        <input id="pPrice" type="number" min="0" step="0.01" placeholder="0,00">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="pKorr">Mögliche Korrekturen (±€)</label>
+        <input id="pKorr" type="number" step="0.01" placeholder="z. B. -5,00">
+      </div>
+      <div class="field">
+        <label for="pCut">Abschlag an Account-Besitzer</label>
+        <div style="display:flex; gap:0.4rem;">
+          <input id="pCut" type="number" min="0" step="0.01" placeholder="auto" style="flex:1;">
+          <select id="pCutMode" style="width:8.5rem;">
+            <option value="pct">% v. Verkaufspreis</option>
+            <option value="pctNetto">% v. Netto-Diff.</option>
+            <option value="fix">€ fest</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="checkrow">
+      <label><input type="checkbox" id="pDelivered"> Erfolgreich zugestellt</label>
+      <label><input type="checkbox" id="pInvoiced"> Rechnung erstellt</label>
+    </div>
+    <div class="small muted" style="margin-bottom:0.65rem;" id="cutPreview"></div>
+    <div style="display:flex; gap:0.5rem;">
+      <button class="primary" id="btnProdSave">Produkt speichern</button>
+      <button id="btnProdCancel" hidden>Abbrechen</button>
+    </div>
+  </div>
+</section>
+
+<section class="tab" id="tab-produkte">
+  <div class="panel">
+    <div class="filters">
+      <select id="fAccount"><option value="">Alle Accounts</option></select>
+      <select id="fStatus">
+        <option value="">Alle Status</option>
+        <option value="aktiv">Aktiv</option>
+        <option value="storniert">Storniert</option>
+        <option value="offen">Auszahlung offen</option>
+        <option value="bezahlt">Ausgezahlt</option>
+        <option value="nichtzugestellt">Nicht zugestellt</option>
+        <option value="keinerechnung">Rechnung fehlt</option>
+      </select>
+      <input id="fSearch" placeholder="Suche ASIN / Produkt …" style="flex:2 1 200px;">
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Datum</th><th>ASIN / Produkt</th><th>Account</th>
+            <th class="num">EK</th><th class="num">VK</th>
+            <th class="num">Differenz</th><th class="num">Netto-Diff.</th>
+            <th class="num">Auszahlung</th><th>Status</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="prodRows"></tbody>
+        <tfoot id="prodFoot"></tfoot>
+      </table>
+    </div>
+    <div class="empty" id="prodEmpty" hidden>Noch keine Produkte. Im Reiter "Produkt eintragen" das erste Produkt anlegen.</div>
+  </div>
+</section>
+
+<section class="tab" id="tab-accounts">
+  <div class="panel narrow" style="margin-bottom:1.25rem;">
+    <h2 id="accFormTitle">Account hinzufügen</h2>
+    <div class="row2">
+      <div class="field">
+        <label for="accName">Name des Accounts</label>
+        <input id="accName" placeholder="z. B. Roman">
+      </div>
+      <div class="field">
+        <label for="accPct">Standard-Abschlag (%)</label>
+        <input id="accPct" type="number" min="0" max="100" step="0.5" placeholder="z. B. 10">
+      </div>
+    </div>
+    <div style="display:flex; gap:0.5rem;">
+      <button class="primary" id="btnAccSave">Account speichern</button>
+      <button id="btnAccCancel" hidden>Abbrechen</button>
+    </div>
+  </div>
+  <div class="accgrid" id="accList"></div>
+</section>
+
+<div class="modal" id="syncModal" hidden>
+  <div class="box">
+    <h2>Cloud-Sync einrichten</h2>
+    <p class="small muted" style="margin-bottom:0.6rem;">
+      Damit laufen Handy, PC und Freunde auf demselben Datenstand.
+      Voraussetzung: ein kostenloses Firebase-Projekt (Anleitung, Teil C).
+    </p>
+    <div class="field">
+      <label for="syncCfgInput">Firebase-Konfiguration (aus der Firebase-Konsole kopieren und einfügen)</label>
+      <textarea id="syncCfgInput" placeholder='{ "apiKey": "...", "projectId": "...", ... }'></textarea>
+    </div>
+    <div class="field">
+      <label for="syncWsInput">Workspace-Name (geheim halten, wie ein Passwort — lang und zufällig wählen)</label>
+      <input id="syncWsInput" placeholder="z. B. dashboard-x93kf2pqv7">
+    </div>
+    <div class="btnrow">
+      <button class="primary" id="btnSyncSave">Speichern &amp; verbinden</button>
+      <button id="btnSyncCancel">Abbrechen</button>
+      <button class="danger" id="btnSyncOff" hidden>Sync trennen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- Sichtbare Fehleranzeige ---------- */
+window.addEventListener("error", function(e){
+  var b = document.getElementById("errBanner");
+  if(b){
+    b.hidden = false;
+    b.textContent = "Script-Fehler: " + (e.message || "unbekannt") + (e.lineno ? " (Zeile " + e.lineno + ")" : "");
+  }
+});
+
+var LS_KEY = "einkauf-dashboard-v1";
+var SETUP_KEY = "einkauf-dashboard-setup-dismissed";
+var state = { accounts: [], products: [] };
+var editAccId = null, editProdId = null;
+
+function fmt(n){ return (isFinite(n) ? n : 0).toLocaleString("de-DE",{style:"currency",currency:"EUR"}); }
+function fmtDate(d){ return d ? new Date(d + "T00:00").toLocaleDateString("de-DE") : "-"; }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+
+/* Alte Datensaetze auf neue Felder heben */
+function migrate(){
+  state.products.forEach(function(p){
+    if(p.asin === undefined) p.asin = "";
+    if(p.buyPrice === undefined) p.buyPrice = 0;
+    if(p.korrektur === undefined) p.korrektur = 0;
+    if(p.delivered === undefined) p.delivered = false;
+    if(p.invoiced === undefined) p.invoiced = false;
+    if(p.paidDate === undefined) p.paidDate = null;
+  });
+}
+
+/* ================= Speicherung ================= */
+var supportsFS = "showSaveFilePicker" in window;
+var fileHandle = null, fileOK = false, writeTimer = null;
+
+function idbOpen(){
+  return new Promise(function(res, rej){
+    var r = indexedDB.open("einkauf-dashboard-db", 1);
+    r.onupgradeneeded = function(){ r.result.createObjectStore("kv"); };
+    r.onsuccess = function(){ res(r.result); };
+    r.onerror = function(){ rej(r.error); };
+  });
+}
+function idbGet(key){
+  return idbOpen().then(function(db){
+    return new Promise(function(res, rej){
+      var t = db.transaction("kv").objectStore("kv").get(key);
+      t.onsuccess = function(){ res(t.result); };
+      t.onerror = function(){ rej(t.error); };
+    });
+  });
+}
+function idbSet(key, val){
+  return idbOpen().then(function(db){
+    return new Promise(function(res, rej){
+      var t = db.transaction("kv","readwrite").objectStore("kv").put(val, key);
+      t.onsuccess = function(){ res(); };
+      t.onerror = function(){ rej(t.error); };
+    });
+  });
+}
+
+function saveLocal(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){}
+}
+function loadLocal(){
+  try{
+    var raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      var data = JSON.parse(raw);
+      if(data && Array.isArray(data.accounts) && Array.isArray(data.products)) state = data;
+    }
+  }catch(e){}
+}
+function save(){
+  saveLocal();
+  scheduleFileWrite();
+  pushSync();
+}
+
+function scheduleFileWrite(){
+  if(!fileOK || !fileHandle) return;
+  clearTimeout(writeTimer);
+  writeTimer = setTimeout(writeFile, 250);
+}
+function writeFile(){
+  if(!fileHandle) return;
+  fileHandle.createWritable().then(function(w){
+    return w.write(JSON.stringify(state, null, 2)).then(function(){ return w.close(); });
+  }).then(function(){
+    fileOK = true; updateStorageStatus();
+  }).catch(function(){
+    fileOK = false; updateStorageStatus();
+  });
+}
+function loadFromFile(){
+  return fileHandle.getFile().then(function(f){ return f.text(); }).then(function(txt){
+    if(txt && txt.trim()){
+      var data = JSON.parse(txt);
+      if(data && Array.isArray(data.accounts) && Array.isArray(data.products)){
+        state = data; migrate(); saveLocal();
+      }
+    } else {
+      scheduleFileWrite();
+    }
+  });
+}
+
+function linkFile(){
+  window.showSaveFilePicker({
+    suggestedName: "dashboard-daten.json",
+    types: [{ description: "JSON-Datei", accept: { "application/json": [".json"] } }]
+  }).then(function(h){
+    fileHandle = h; fileOK = true;
+    idbSet("fileHandle", h);
+    $("setupBanner").hidden = true;
+    writeFile();
+    updateStorageStatus();
+  }).catch(function(){});
+}
+
+function tryRestoreFile(){
+  if(!supportsFS){ updateStorageStatus(); return; }
+  idbGet("fileHandle").then(function(h){
+    if(!h){
+      if(!localStorage.getItem(SETUP_KEY)) $("setupBanner").hidden = false;
+      updateStorageStatus(); return;
+    }
+    fileHandle = h;
+    h.queryPermission({ mode: "readwrite" }).then(function(perm){
+      if(perm === "granted"){
+        loadFromFile().then(function(){ fileOK = true; render(); updateStorageStatus(); });
+      } else {
+        $("loadBanner").hidden = false;
+        updateStorageStatus();
+      }
+    });
+  }).catch(function(){ updateStorageStatus(); });
+}
+
+function grantAndLoad(){
+  if(!fileHandle) return;
+  fileHandle.requestPermission({ mode: "readwrite" }).then(function(perm){
+    if(perm === "granted"){
+      loadFromFile().then(function(){
+        fileOK = true;
+        $("loadBanner").hidden = true;
+        render(); updateStorageStatus();
+      });
+    }
+  });
+}
+
+function updateStorageStatus(){
+  var el = $("storageStatus");
+  if(fileOK && fileHandle){
+    el.textContent = "Automatische Speicherung aktiv: " + fileHandle.name;
+  } else if(supportsFS){
+    el.textContent = "Nur Browser-Speicher aktiv. Über 'Datendatei verknüpfen' die automatische Speicherung einrichten.";
+  } else {
+    el.textContent = "Browser-Speicher aktiv. Dieser Browser kann nicht direkt in Dateien schreiben - regelmäßig Backup exportieren (oder Chrome/Edge nutzen).";
+  }
+}
+
+/* ---------- Menü ---------- */
+$("btnMenu").onclick = function(e){
+  e.stopPropagation();
+  $("menu").hidden = !$("menu").hidden;
+};
+document.addEventListener("click", function(e){
+  if(!$("menu").hidden && !$("menu").contains(e.target)) $("menu").hidden = true;
+});
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll("nav button").forEach(function(btn){
+  btn.onclick = function(){ showTab(btn.getAttribute("data-tab")); };
+});
+function showTab(name){
+  document.querySelectorAll("nav button").forEach(function(b){
+    b.classList.toggle("active", b.getAttribute("data-tab") === name);
+  });
+  document.querySelectorAll(".tab").forEach(function(t){
+    t.classList.toggle("active", t.id === "tab-" + name);
+  });
+}
+
+/* ---------- Berechnung ---------- */
+function diff(p){ return Number(p.price||0) - Number(p.buyPrice||0); }
+function nettoDiff(p){ return diff(p) + Number(p.korrektur||0); }
+function payout(p){
+  if(p.status === "storniert") return 0;
+  if(p.cutMode === "fix") return Number(p.cutVal||0);
+  if(p.cutMode === "pctNetto") return Math.max(0, nettoDiff(p)) * Number(p.cutVal||0) / 100;
+  return Number(p.price||0) * Number(p.cutVal||0) / 100;
+}
+function accById(id){ return state.accounts.find(function(a){ return a.id === id; }); }
+function accStats(a){
+  var prods = state.products.filter(function(p){ return p.accountId === a.id; });
+  var act = prods.filter(function(p){ return p.status === "aktiv"; });
+  var total = act.reduce(function(s,p){ return s + payout(p); }, 0);
+  var open = act.filter(function(p){ return !p.paid; }).reduce(function(s,p){ return s + payout(p); }, 0);
+  var lastPaid = null;
+  act.forEach(function(p){ if(p.paid && p.paidDate && (!lastPaid || p.paidDate > lastPaid)) lastPaid = p.paidDate; });
+  return { nAct: act.length, nSt: prods.length - act.length, total: total, open: open, paid: total - open, lastPaid: lastPaid };
+}
+
+/* ---------- Rendering ---------- */
+function render(){
+  renderSummary(); renderAccOverview(); renderAccounts(); renderAccountSelects(); renderProducts(); updateCutPreview();
+}
+
+function renderSummary(){
+  var act = state.products.filter(function(p){ return p.status === "aktiv"; });
+  var sumBuy = act.reduce(function(s,p){ return s + Number(p.buyPrice||0); }, 0);
+  var sumPrice = act.reduce(function(s,p){ return s + Number(p.price||0); }, 0);
+  var sumNetto = act.reduce(function(s,p){ return s + nettoDiff(p); }, 0);
+  var sumPay = act.reduce(function(s,p){ return s + payout(p); }, 0);
+  var sumOpen = act.filter(function(p){ return !p.paid; }).reduce(function(s,p){ return s + payout(p); }, 0);
+  var nStorno = state.products.filter(function(p){ return p.status === "storniert"; }).length;
+  var nUndeliv = act.filter(function(p){ return !p.delivered; }).length;
+  $("summary").innerHTML =
+    '<div class="cell"><span class="small muted">Aktive Produkte</span><b>' + act.length + '</b></div>' +
+    '<div class="cell"><span class="small muted">Summe Einkauf</span><b>' + fmt(sumBuy) + '</b></div>' +
+    '<div class="cell"><span class="small muted">Summe Verkauf</span><b>' + fmt(sumPrice) + '</b></div>' +
+    '<div class="cell accent"><span class="small muted">Netto-Differenz</span><b>' + fmt(sumNetto) + '</b></div>' +
+    '<div class="cell warn"><span class="small muted">Noch auszuzahlen</span><b>' + fmt(sumOpen) + '</b></div>' +
+    '<div class="cell"><span class="small muted">Abschläge gesamt</span><b>' + fmt(sumPay) + '</b></div>' +
+    '<div class="cell neg"><span class="small muted">Storniert / n. zugestellt</span><b>' + nStorno + ' / ' + nUndeliv + '</b></div>';
+}
+
+function accCard(a, withButtons){
+  var s = accStats(a);
+  var btns = withButtons
+    ? '<div class="btns">' +
+        '<button class="tiny" onclick="editAccount(\'' + a.id + '\')">Bearbeiten</button>' +
+        '<button class="tiny" onclick="filterByAccount(\'' + a.id + '\')">Produkte anzeigen</button>' +
+        '<button class="tiny danger" onclick="deleteAccount(\'' + a.id + '\')">Löschen</button>' +
+      '</div>'
+    : '<div class="btns">' +
+        '<button class="tiny" onclick="filterByAccount(\'' + a.id + '\')">Produkte anzeigen</button>' +
+      '</div>';
+  return '<div class="acc">' +
+    '<div class="top"><span class="name">' + esc(a.name) + '</span>' +
+    '<span class="small muted">' + a.pct + '% Standard</span></div>' +
+    '<dl>' +
+      '<dt>Produkte (aktiv / storniert)</dt><dd>' + s.nAct + ' / ' + s.nSt + '</dd>' +
+      '<dt>Summe</dt><dd>' + fmt(s.total) + '</dd>' +
+      '<dt>Davon ausgezahlt</dt><dd>' + fmt(s.paid) + '</dd>' +
+      '<dt>Letzte Auszahlung</dt><dd>' + (s.lastPaid ? fmtDate(s.lastPaid) : "-") + '</dd>' +
+      '<dt>Verbleibend</dt><dd class="open">' + fmt(s.open) + '</dd>' +
+    '</dl>' + btns + '</div>';
+}
+
+function renderAccOverview(){
+  $("accOverview").innerHTML = state.accounts.length
+    ? state.accounts.map(function(a){ return accCard(a, false); }).join("")
+    : '<div class="small muted">Noch keine Accounts. Im Reiter "Accounts" den ersten anlegen.</div>';
+}
+function renderAccounts(){
+  $("accList").innerHTML = state.accounts.length
+    ? state.accounts.map(function(a){ return accCard(a, true); }).join("")
+    : '<div class="small muted">Noch keine Accounts angelegt.</div>';
+}
+
+window.filterByAccount = function(id){
+  $("fAccount").value = id; $("fStatus").value = ""; $("fSearch").value = "";
+  renderProducts(); showTab("produkte");
+};
+
+function renderAccountSelects(){
+  var opts = state.accounts.map(function(a){
+    return '<option value="' + a.id + '">' + esc(a.name) + '</option>';
+  }).join("");
+  var cur = $("pAccount").value;
+  $("pAccount").innerHTML = opts || '<option value="">- erst Account anlegen -</option>';
+  if(cur && accById(cur)) $("pAccount").value = cur;
+  var fcur = $("fAccount").value;
+  $("fAccount").innerHTML = '<option value="">Alle Accounts</option>' + opts;
+  if(fcur && accById(fcur)) $("fAccount").value = fcur;
+}
+
+function filteredProducts(){
+  var fa = $("fAccount").value, fs = $("fStatus").value,
+      q = $("fSearch").value.trim().toLowerCase();
+  return state.products
+    .filter(function(p){ return !fa || p.accountId === fa; })
+    .filter(function(p){
+      if(fs === "aktiv") return p.status === "aktiv";
+      if(fs === "storniert") return p.status === "storniert";
+      if(fs === "offen") return p.status === "aktiv" && !p.paid;
+      if(fs === "bezahlt") return p.status === "aktiv" && p.paid;
+      if(fs === "nichtzugestellt") return p.status === "aktiv" && !p.delivered;
+      if(fs === "keinerechnung") return p.status === "aktiv" && !p.invoiced;
+      return true;
+    })
+    .filter(function(p){ return !q || ((p.asin||"") + " " + (p.name||"")).toLowerCase().indexOf(q) !== -1; })
+    .sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
+}
+
+function renderProducts(){
+  var list = filteredProducts();
+  $("prodEmpty").hidden = state.products.length > 0;
+  $("prodRows").innerHTML = list.map(function(p){
+    var a = accById(p.accountId);
+    var isSt = p.status === "storniert";
+    var d = diff(p), nd = nettoDiff(p);
+    var statusBadge = isSt
+      ? '<span class="badge storno">Storniert</span>'
+      : (p.paid ? '<span class="badge paid">Ausgezahlt</span>' : '<span class="badge open">Offen</span>');
+    var flags = isSt ? '' :
+      '<span class="flag ' + (p.delivered ? 'on' : '') + '" onclick="toggleDelivered(\'' + p.id + '\')" title="Erfolgreich zugestellt">Zugestellt</span>' +
+      '<span class="flag ' + (p.invoiced ? 'on' : '') + '" onclick="toggleInvoiced(\'' + p.id + '\')" title="Rechnung erstellt">Rechnung</span>';
+    var btns = isSt
+      ? '<button class="tiny" onclick="toggleStorno(\'' + p.id + '\')">Reaktivieren</button>'
+      : '<button class="tiny" onclick="togglePaid(\'' + p.id + '\')">' + (p.paid ? 'Offen' : 'Ausgezahlt') + '</button>' +
+        '<button class="tiny" onclick="toggleStorno(\'' + p.id + '\')">Storno</button>';
+    var prodCell = '<b>' + esc(p.asin || "-") + '</b>' + (p.name ? '<span class="sub">' + esc(p.name) + '</span>' : '');
+    return '<tr class="' + (isSt ? 'storno' : '') + '">' +
+      '<td>' + fmtDate(p.date) + '</td>' +
+      '<td class="strike">' + prodCell + '</td>' +
+      '<td>' + (a ? esc(a.name) : "?") + '</td>' +
+      '<td class="num">' + fmt(Number(p.buyPrice||0)) + '</td>' +
+      '<td class="num">' + fmt(Number(p.price||0)) + '</td>' +
+      '<td class="num ' + (d >= 0 ? '' : 'negv') + '">' + fmt(d) + '</td>' +
+      '<td class="num ' + (nd >= 0 ? 'pos' : 'negv') + '">' + fmt(nd) + '</td>' +
+      '<td class="num"><b>' + fmt(payout(p)) + '</b></td>' +
+      '<td>' + statusBadge + '<br>' + flags + '</td>' +
+      '<td><div class="rowbtns">' + btns +
+        '<button class="tiny" onclick="editProduct(\'' + p.id + '\')">Bearbeiten</button>' +
+        '<button class="tiny danger" onclick="deleteProduct(\'' + p.id + '\')">Löschen</button>' +
+      '</div></td></tr>';
+  }).join("");
+  var act = list.filter(function(p){ return p.status === "aktiv"; });
+  $("prodFoot").innerHTML = list.length
+    ? '<tr><td colspan="3">Summe (gefiltert, ohne Stornos)</td>' +
+      '<td class="num">' + fmt(act.reduce(function(s,p){ return s + Number(p.buyPrice||0); }, 0)) + '</td>' +
+      '<td class="num">' + fmt(act.reduce(function(s,p){ return s + Number(p.price||0); }, 0)) + '</td>' +
+      '<td class="num">' + fmt(act.reduce(function(s,p){ return s + diff(p); }, 0)) + '</td>' +
+      '<td class="num">' + fmt(act.reduce(function(s,p){ return s + nettoDiff(p); }, 0)) + '</td>' +
+      '<td class="num">' + fmt(act.reduce(function(s,p){ return s + payout(p); }, 0)) + '</td>' +
+      '<td colspan="2"></td></tr>'
+    : "";
+}
+
+/* ---------- Accounts ---------- */
+$("btnAccSave").onclick = function(){
+  var name = $("accName").value.trim();
+  var pct = parseFloat($("accPct").value);
+  if(!name){ alert("Bitte einen Namen eingeben."); return; }
+  if(!isFinite(pct) || pct < 0){ alert("Bitte einen gültigen Abschlag in % eingeben."); return; }
+  if(editAccId){
+    var a = accById(editAccId); a.name = name; a.pct = pct;
+  } else {
+    state.accounts.push({ id: uid(), name: name, pct: pct });
+  }
+  resetAccForm(); save(); render();
+};
+$("btnAccCancel").onclick = resetAccForm;
+
+function resetAccForm(){
+  editAccId = null;
+  $("accName").value = ""; $("accPct").value = "";
+  $("accFormTitle").textContent = "Account hinzufügen";
+  $("btnAccSave").textContent = "Account speichern";
+  $("btnAccCancel").hidden = true;
+}
+window.editAccount = function(id){
+  var a = accById(id); if(!a) return;
+  editAccId = id;
+  $("accName").value = a.name; $("accPct").value = a.pct;
+  $("accFormTitle").textContent = "Account bearbeiten";
+  $("btnAccSave").textContent = "Änderungen speichern";
+  $("btnAccCancel").hidden = false;
+  showTab("accounts"); $("accName").focus();
+};
+window.deleteAccount = function(id){
+  var n = state.products.filter(function(p){ return p.accountId === id; }).length;
+  var msg = n ? "Diesem Account sind " + n + " Produkte zugeordnet. Account und Produkte wirklich löschen?" : "Account wirklich löschen?";
+  if(!confirm(msg)) return;
+  state.accounts = state.accounts.filter(function(a){ return a.id !== id; });
+  state.products = state.products.filter(function(p){ return p.accountId !== id; });
+  save(); render();
+};
+
+/* ---------- Produkte ---------- */
+function updateCutPreview(){
+  var buy = parseFloat($("pBuy").value) || 0;
+  var price = parseFloat($("pPrice").value) || 0;
+  var korr = parseFloat($("pKorr").value) || 0;
+  var mode = $("pCutMode").value;
+  var cut = parseFloat($("pCut").value);
+  var a = accById($("pAccount").value);
+  if(!isFinite(cut) && a && mode !== "fix") cut = a.pct;
+  var d = price - buy, nd = d + korr;
+  var txt = "Differenz: " + fmt(d) + " / Netto: " + fmt(nd);
+  if(isFinite(cut)){
+    var pay = mode === "fix" ? cut : (mode === "pctNetto" ? Math.max(0, nd) * cut / 100 : price * cut / 100);
+    txt += " / Auszahlung: " + fmt(pay) + " / dein Rest: " + fmt(nd - pay);
+  }
+  $("cutPreview").textContent = txt;
+}
+["pBuy","pPrice","pKorr","pCut","pCutMode","pAccount"].forEach(function(id){
+  $(id).addEventListener("input", updateCutPreview);
+});
+
+$("btnProdSave").onclick = function(){
+  var asin = $("pAsin").value.trim();
+  var name = $("pName").value.trim();
+  var accountId = $("pAccount").value;
+  var buy = parseFloat($("pBuy").value);
+  var price = parseFloat($("pPrice").value);
+  if(!asin && !name){ alert("Bitte ASIN oder Produktname eingeben."); return; }
+  if(!accountId || !accById(accountId)){ alert("Bitte zuerst im Reiter 'Accounts' einen Account anlegen."); return; }
+  if(!isFinite(buy) || buy < 0) buy = 0;
+  if(!isFinite(price) || price < 0){ alert("Bitte einen gültigen Verkaufspreis eingeben."); return; }
+  var korr = parseFloat($("pKorr").value);
+  if(!isFinite(korr)) korr = 0;
+  var mode = $("pCutMode").value;
+  var cut = parseFloat($("pCut").value);
+  if(!isFinite(cut)){
+    if(mode !== "fix") cut = accById(accountId).pct;
+    else { alert("Bitte einen festen Abschlag in € eingeben."); return; }
+  }
+  var data = {
+    asin: asin, name: name, accountId: accountId,
+    date: $("pDate").value || today(),
+    buyPrice: buy, price: price, korrektur: korr,
+    cutMode: mode, cutVal: cut,
+    delivered: $("pDelivered").checked,
+    invoiced: $("pInvoiced").checked
+  };
+  if(editProdId){
+    var p = state.products.find(function(x){ return x.id === editProdId; });
+    Object.assign(p, data);
+  } else {
+    state.products.push(Object.assign({ id: uid(), status: "aktiv", paid: false, paidDate: null }, data));
+  }
+  resetProdForm(); save(); render();
+  showTab("produkte");
+};
+$("btnProdCancel").onclick = function(){ resetProdForm(); showTab("produkte"); };
+
+function resetProdForm(){
+  editProdId = null;
+  ["pAsin","pName","pBuy","pPrice","pKorr","pCut"].forEach(function(id){ $(id).value = ""; });
+  $("pDate").value = today();
+  $("pCutMode").value = "pct";
+  $("pDelivered").checked = false;
+  $("pInvoiced").checked = false;
+  $("prodFormTitle").textContent = "Produkt eintragen";
+  $("btnProdSave").textContent = "Produkt speichern";
+  $("btnProdCancel").hidden = true;
+  updateCutPreview();
+}
+window.editProduct = function(id){
+  var p = state.products.find(function(x){ return x.id === id; }); if(!p) return;
+  editProdId = id;
+  $("pAsin").value = p.asin || ""; $("pName").value = p.name || "";
+  $("pAccount").value = p.accountId; $("pDate").value = p.date || "";
+  $("pBuy").value = p.buyPrice; $("pPrice").value = p.price;
+  $("pKorr").value = p.korrektur || "";
+  $("pCut").value = p.cutVal; $("pCutMode").value = p.cutMode;
+  $("pDelivered").checked = !!p.delivered;
+  $("pInvoiced").checked = !!p.invoiced;
+  $("prodFormTitle").textContent = "Produkt bearbeiten";
+  $("btnProdSave").textContent = "Änderungen speichern";
+  $("btnProdCancel").hidden = false;
+  updateCutPreview(); showTab("eintragen"); $("pAsin").focus();
+};
+window.deleteProduct = function(id){
+  if(!confirm("Produkt wirklich löschen? (Für Stornierungen besser den Storno-Button nutzen.)")) return;
+  state.products = state.products.filter(function(p){ return p.id !== id; });
+  save(); render();
+};
+window.toggleStorno = function(id){
+  var p = state.products.find(function(x){ return x.id === id; }); if(!p) return;
+  p.status = p.status === "storniert" ? "aktiv" : "storniert";
+  if(p.status === "storniert"){ p.paid = false; p.paidDate = null; }
+  save(); render();
+};
+window.togglePaid = function(id){
+  var p = state.products.find(function(x){ return x.id === id; }); if(!p) return;
+  p.paid = !p.paid;
+  p.paidDate = p.paid ? today() : null;
+  save(); render();
+};
+window.toggleDelivered = function(id){
+  var p = state.products.find(function(x){ return x.id === id; }); if(!p) return;
+  p.delivered = !p.delivered; save(); render();
+};
+window.toggleInvoiced = function(id){
+  var p = state.products.find(function(x){ return x.id === id; }); if(!p) return;
+  p.invoiced = !p.invoiced; save(); render();
+};
+
+/* ---------- Filter ---------- */
+["fAccount","fStatus"].forEach(function(id){ $(id).addEventListener("change", renderProducts); });
+$("fSearch").addEventListener("input", renderProducts);
+
+/* ---------- Manuelles Backup (im Menü) ---------- */
+$("btnExport").onclick = function(){
+  var blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "dashboard-backup-" + today() + ".json";
+  a.click(); URL.revokeObjectURL(a.href);
+  $("menu").hidden = true;
+};
+$("btnImport").onclick = function(){ $("fileImport").click(); };
+$("fileImport").onchange = function(e){
+  var f = e.target.files[0]; if(!f) return;
+  var r = new FileReader();
+  r.onload = function(){
+    try{
+      var data = JSON.parse(r.result);
+      if(!Array.isArray(data.accounts) || !Array.isArray(data.products)) throw new Error("bad");
+      if(!confirm("Import ersetzt die aktuellen Daten. Fortfahren?")) return;
+      state = data; migrate(); save(); render();
+      $("menu").hidden = true;
+    }catch(err){ alert("Datei konnte nicht gelesen werden. Ist es ein gültiges Backup?"); }
+  };
+  r.readAsText(f); e.target.value = "";
+};
+
+/* ---------- Init ---------- */
+if(supportsFS){
+  $("btnLinkFile").hidden = false;
+  $("btnLinkFile").onclick = function(){ $("menu").hidden = true; linkFile(); };
+}
+$("btnSetup").onclick = linkFile;
+$("btnSetupLater").onclick = function(){
+  localStorage.setItem(SETUP_KEY, "1");
+  $("setupBanner").hidden = true;
+};
+$("btnGrantLoad").onclick = grantAndLoad;
+
+loadLocal();
+migrate();
+$("pDate").value = today();
+render();
+updateStorageStatus();
+tryRestoreFile();
+
+
+/* ================= Cloud-Sync (Firebase, optional) ================= */
+var SYNC_KEY = "einkauf-dashboard-sync";
+var syncCfg = null, syncDocRef = null, syncActive = false;
+var clientId = uid();
+var syncPushTimer = null;
+
+function loadSyncCfg(){
+  try{ syncCfg = JSON.parse(localStorage.getItem(SYNC_KEY) || "null"); }catch(e){ syncCfg = null; }
+}
+function setSyncStatus(txt){
+  var el = $("syncStatus");
+  if(!txt){ el.hidden = true; return; }
+  el.hidden = false; el.textContent = txt;
+}
+function loadScript(src){
+  return new Promise(function(res, rej){
+    var s = document.createElement("script");
+    s.src = src; s.onload = res; s.onerror = function(){ rej(new Error("Laden fehlgeschlagen: " + src)); };
+    document.head.appendChild(s);
+  });
+}
+function initSync(){
+  if(!syncCfg || !syncCfg.config || !syncCfg.workspace) return;
+  setSyncStatus("Cloud-Sync: verbinde …");
+  loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js")
+  .then(function(){ return loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"); })
+  .then(function(){
+    firebase.initializeApp(syncCfg.config);
+    var db = firebase.firestore();
+    syncDocRef = db.collection("workspaces").doc(syncCfg.workspace);
+    syncDocRef.onSnapshot(function(doc){
+      syncActive = true;
+      var d = doc.data();
+      if(!d || !d.data){
+        // Workspace ist leer: eigenen Stand hochladen
+        if(state.accounts.length || state.products.length) pushSyncNow();
+        setSyncStatus("Cloud-Sync aktiv: " + syncCfg.workspace);
+        return;
+      }
+      if(d.writer !== clientId && d.data && Array.isArray(d.data.accounts) && Array.isArray(d.data.products)){
+        state = d.data; migrate(); saveLocal(); render();
+      }
+      setSyncStatus("Cloud-Sync aktiv: " + syncCfg.workspace);
+    }, function(err){
+      syncActive = false;
+      setSyncStatus("Cloud-Sync Fehler: " + err.message);
+    });
+  })
+  .catch(function(err){
+    setSyncStatus("Cloud-Sync nicht verfügbar (offline?)");
+  });
+}
+function pushSync(){
+  if(!syncDocRef || !syncActive) return;
+  clearTimeout(syncPushTimer);
+  syncPushTimer = setTimeout(pushSyncNow, 400);
+}
+function pushSyncNow(){
+  if(!syncDocRef) return;
+  syncDocRef.set({
+    data: JSON.parse(JSON.stringify(state)),
+    writer: clientId,
+    updatedAt: Date.now()
+  }).catch(function(err){
+    setSyncStatus("Cloud-Sync Fehler beim Speichern: " + err.message);
+  });
+}
+
+/* ---- Sync-Einrichtung (Modal) ---- */
+$("btnSyncSetup").onclick = function(){
+  $("menu").hidden = true;
+  loadSyncCfg();
+  $("syncCfgInput").value = syncCfg && syncCfg.config ? JSON.stringify(syncCfg.config, null, 2) : "";
+  $("syncWsInput").value = syncCfg && syncCfg.workspace ? syncCfg.workspace : "";
+  $("btnSyncOff").hidden = !syncCfg;
+  $("syncModal").hidden = false;
+};
+$("btnSyncCancel").onclick = function(){ $("syncModal").hidden = true; };
+$("btnSyncOff").onclick = function(){
+  if(!confirm("Cloud-Sync auf diesem Gerät trennen? Die Daten bleiben lokal erhalten.")) return;
+  localStorage.removeItem(SYNC_KEY);
+  location.reload();
+};
+$("btnSyncSave").onclick = function(){
+  var raw = $("syncCfgInput").value;
+  var ws = $("syncWsInput").value.trim();
+  if(!ws){ alert("Bitte einen Workspace-Namen eingeben."); return; }
+  var m = raw.match(/\{[\s\S]*\}/);
+  if(!m){ alert("Konfiguration nicht erkannt. Bitte den kompletten Block mit den geschweiften Klammern einfügen."); return; }
+  var cfg = null;
+  try{ cfg = JSON.parse(m[0]); }
+  catch(e){
+    try{ cfg = (new Function("return " + m[0]))(); }
+    catch(e2){ alert("Konfiguration konnte nicht gelesen werden. Bitte genau den Block aus der Firebase-Konsole einfügen."); return; }
+  }
+  if(!cfg || !cfg.apiKey || !cfg.projectId){ alert("In der Konfiguration fehlen apiKey oder projectId."); return; }
+  localStorage.setItem(SYNC_KEY, JSON.stringify({ config: cfg, workspace: ws }));
+  location.reload();
+};
+
+loadSyncCfg();
+if(syncCfg) initSync();
+
+/* ================= Service Worker (App-Installation / offline) ================= */
+if("serviceWorker" in navigator && location.protocol.indexOf("http") === 0){
+  navigator.serviceWorker.register("./sw.js").catch(function(){});
+}
+
+</script>
+</body>
+</html>
