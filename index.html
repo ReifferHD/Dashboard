@@ -220,6 +220,7 @@
   <button data-tab="uebersicht" class="active">Übersicht</button>
   <button data-tab="eintragen">Produkt eintragen</button>
   <button data-tab="produkte">Produkte</button>
+  <button data-tab="auszahlungen">Auszahlungen</button>
   <button data-tab="accounts">Accounts</button>
 </nav>
 
@@ -242,6 +243,10 @@
         <input id="pName" placeholder="z. B. Lego Set 42115">
       </div>
     </div>
+    <div class="field">
+      <label for="pOrder">Bestellnummer (für automatische Storno-Erkennung)</label>
+      <input id="pOrder" placeholder="z. B. 302-1234567-1234567">
+    </div>
     <div class="row2">
       <div class="field">
         <label for="pAccount">Gekauft über Account</label>
@@ -262,22 +267,9 @@
         <input id="pPrice" type="number" min="0" step="0.01" placeholder="0,00">
       </div>
     </div>
-    <div class="row2">
-      <div class="field">
-        <label for="pKorr">Mögliche Korrekturen (±€)</label>
-        <input id="pKorr" type="number" step="0.01" placeholder="z. B. -5,00">
-      </div>
-      <div class="field">
-        <label for="pCut">Abschlag an Account-Besitzer</label>
-        <div style="display:flex; gap:0.4rem;">
-          <input id="pCut" type="number" min="0" step="0.01" placeholder="auto" style="flex:1;">
-          <select id="pCutMode" style="width:8.5rem;">
-            <option value="pct">% v. Verkaufspreis</option>
-            <option value="pctNetto">% v. Netto-Diff.</option>
-            <option value="fix">€ fest</option>
-          </select>
-        </div>
-      </div>
+    <div class="field">
+      <label for="pKorr">Mögliche Korrekturen (±€)</label>
+      <input id="pKorr" type="number" step="0.01" placeholder="z. B. -5,00">
     </div>
     <div class="checkrow">
       <label><input type="checkbox" id="pDelivered"> Erfolgreich zugestellt</label>
@@ -299,8 +291,6 @@
         <option value="">Alle Status</option>
         <option value="aktiv">Aktiv</option>
         <option value="storniert">Storniert</option>
-        <option value="offen">Auszahlung offen</option>
-        <option value="bezahlt">Ausgezahlt</option>
         <option value="nichtzugestellt">Nicht zugestellt</option>
         <option value="keinerechnung">Rechnung fehlt</option>
       </select>
@@ -313,7 +303,7 @@
             <th>Datum</th><th>ASIN / Produkt</th><th>Account</th>
             <th class="num">EK</th><th class="num">VK</th>
             <th class="num">Differenz</th><th class="num">Netto-Diff.</th>
-            <th class="num">Auszahlung</th><th>Status</th><th></th>
+            <th>Status</th><th></th>
           </tr>
         </thead>
         <tbody id="prodRows"></tbody>
@@ -324,18 +314,56 @@
   </div>
 </section>
 
+<section class="tab" id="tab-auszahlungen">
+  <div class="panel narrow" style="margin-bottom:1.25rem;">
+    <h2>Auszahlung eintragen</h2>
+    <div class="row2">
+      <div class="field">
+        <label for="payAccount">Account</label>
+        <select id="payAccount"></select>
+      </div>
+      <div class="field">
+        <label for="payMonth">Für Monat</label>
+        <input id="payMonth" type="month">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="payAmount">Betrag (€)</label>
+        <input id="payAmount" type="number" min="0" step="0.01" placeholder="0,00">
+      </div>
+      <div class="field">
+        <label for="payDate">Gesendet am</label>
+        <input id="payDate" type="date">
+      </div>
+    </div>
+    <div class="field">
+      <label for="payNote">Notiz (optional)</label>
+      <input id="payNote" placeholder="z. B. per Überweisung">
+    </div>
+    <button class="primary" id="btnPaySave">Auszahlung speichern</button>
+  </div>
+  <div class="panel">
+    <h2>Bisherige Auszahlungen</h2>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr><th>Gesendet am</th><th>Monat</th><th>Account</th><th class="num">Betrag</th><th>Notiz</th><th></th></tr>
+        </thead>
+        <tbody id="payRows"></tbody>
+        <tfoot id="payFoot"></tfoot>
+      </table>
+    </div>
+    <div class="empty" id="payEmpty" hidden>Noch keine Auszahlungen eingetragen.</div>
+  </div>
+</section>
+
 <section class="tab" id="tab-accounts">
   <div class="panel narrow" style="margin-bottom:1.25rem;">
     <h2 id="accFormTitle">Account hinzufügen</h2>
-    <div class="row2">
-      <div class="field">
-        <label for="accName">Name des Accounts</label>
-        <input id="accName" placeholder="z. B. Roman">
-      </div>
-      <div class="field">
-        <label for="accPct">Standard-Abschlag (%)</label>
-        <input id="accPct" type="number" min="0" max="100" step="0.5" placeholder="z. B. 10">
-      </div>
+    <div class="field">
+      <label for="accName">Name des Accounts</label>
+      <input id="accName" placeholder="z. B. Roman">
     </div>
     <div style="display:flex; gap:0.5rem;">
       <button class="primary" id="btnAccSave">Account speichern</button>
@@ -397,8 +425,10 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ re
 
 /* Alte Datensaetze auf neue Felder heben */
 function migrate(){
+  if(!Array.isArray(state.payments)) state.payments = [];
   state.products.forEach(function(p){
     if(p.asin === undefined) p.asin = "";
+    if(p.orderId === undefined) p.orderId = "";
     if(p.buyPrice === undefined) p.buyPrice = 0;
     if(p.korrektur === undefined) p.korrektur = 0;
     if(p.delivered === undefined) p.delivered = false;
@@ -454,6 +484,7 @@ function save(){
   saveLocal();
   scheduleFileWrite();
   pushSync();
+  applyStorno();
 }
 
 function scheduleFileWrite(){
@@ -565,26 +596,21 @@ function showTab(name){
 /* ---------- Berechnung ---------- */
 function diff(p){ return Number(p.price||0) - Number(p.buyPrice||0); }
 function nettoDiff(p){ return diff(p) + Number(p.korrektur||0); }
-function payout(p){
-  if(p.status === "storniert") return 0;
-  if(p.cutMode === "fix") return Number(p.cutVal||0);
-  if(p.cutMode === "pctNetto") return Math.max(0, nettoDiff(p)) * Number(p.cutVal||0) / 100;
-  return Number(p.price||0) * Number(p.cutVal||0) / 100;
-}
 function accById(id){ return state.accounts.find(function(a){ return a.id === id; }); }
 function accStats(a){
   var prods = state.products.filter(function(p){ return p.accountId === a.id; });
   var act = prods.filter(function(p){ return p.status === "aktiv"; });
-  var total = act.reduce(function(s,p){ return s + payout(p); }, 0);
-  var open = act.filter(function(p){ return !p.paid; }).reduce(function(s,p){ return s + payout(p); }, 0);
-  var lastPaid = null;
-  act.forEach(function(p){ if(p.paid && p.paidDate && (!lastPaid || p.paidDate > lastPaid)) lastPaid = p.paidDate; });
-  return { nAct: act.length, nSt: prods.length - act.length, total: total, open: open, paid: total - open, lastPaid: lastPaid };
+  var netto = act.reduce(function(s,p){ return s + nettoDiff(p); }, 0);
+  var pays = state.payments.filter(function(x){ return x.accountId === a.id; });
+  var paidSum = pays.reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
+  var lastPay = null;
+  pays.forEach(function(x){ if(x.date && (!lastPay || x.date > lastPay)) lastPay = x.date; });
+  return { nAct: act.length, nSt: prods.length - act.length, netto: netto, paidSum: paidSum, lastPay: lastPay };
 }
 
 /* ---------- Rendering ---------- */
 function render(){
-  renderSummary(); renderAccOverview(); renderAccounts(); renderAccountSelects(); renderProducts(); updateCutPreview();
+  renderSummary(); renderAccOverview(); renderAccounts(); renderAccountSelects(); renderProducts(); renderPayments(); updateCutPreview();
 }
 
 function renderSummary(){
@@ -592,8 +618,7 @@ function renderSummary(){
   var sumBuy = act.reduce(function(s,p){ return s + Number(p.buyPrice||0); }, 0);
   var sumPrice = act.reduce(function(s,p){ return s + Number(p.price||0); }, 0);
   var sumNetto = act.reduce(function(s,p){ return s + nettoDiff(p); }, 0);
-  var sumPay = act.reduce(function(s,p){ return s + payout(p); }, 0);
-  var sumOpen = act.filter(function(p){ return !p.paid; }).reduce(function(s,p){ return s + payout(p); }, 0);
+  var sumPaid = state.payments.reduce(function(s,x){ return s + Number(x.amount||0); }, 0);
   var nStorno = state.products.filter(function(p){ return p.status === "storniert"; }).length;
   var nUndeliv = act.filter(function(p){ return !p.delivered; }).length;
   $("summary").innerHTML =
@@ -601,8 +626,7 @@ function renderSummary(){
     '<div class="cell"><span class="small muted">Summe Einkauf</span><b>' + fmt(sumBuy) + '</b></div>' +
     '<div class="cell"><span class="small muted">Summe Verkauf</span><b>' + fmt(sumPrice) + '</b></div>' +
     '<div class="cell accent"><span class="small muted">Netto-Differenz</span><b>' + fmt(sumNetto) + '</b></div>' +
-    '<div class="cell warn"><span class="small muted">Noch auszuzahlen</span><b>' + fmt(sumOpen) + '</b></div>' +
-    '<div class="cell"><span class="small muted">Abschläge gesamt</span><b>' + fmt(sumPay) + '</b></div>' +
+    '<div class="cell warn"><span class="small muted">Auszahlungen gesamt</span><b>' + fmt(sumPaid) + '</b></div>' +
     '<div class="cell neg"><span class="small muted">Storniert / n. zugestellt</span><b>' + nStorno + ' / ' + nUndeliv + '</b></div>';
 }
 
@@ -619,13 +643,12 @@ function accCard(a, withButtons){
       '</div>';
   return '<div class="acc">' +
     '<div class="top"><span class="name">' + esc(a.name) + '</span>' +
-    '<span class="small muted">' + a.pct + '% Standard</span></div>' +
+    '</div>' +
     '<dl>' +
       '<dt>Produkte (aktiv / storniert)</dt><dd>' + s.nAct + ' / ' + s.nSt + '</dd>' +
-      '<dt>Summe</dt><dd>' + fmt(s.total) + '</dd>' +
-      '<dt>Davon ausgezahlt</dt><dd>' + fmt(s.paid) + '</dd>' +
-      '<dt>Letzte Auszahlung</dt><dd>' + (s.lastPaid ? fmtDate(s.lastPaid) : "-") + '</dd>' +
-      '<dt>Verbleibend</dt><dd class="open">' + fmt(s.open) + '</dd>' +
+      '<dt>Netto-Differenz</dt><dd>' + fmt(s.netto) + '</dd>' +
+      '<dt>Ausgezahlt gesamt</dt><dd>' + fmt(s.paidSum) + '</dd>' +
+      '<dt>Letzte Auszahlung</dt><dd class="open">' + (s.lastPay ? fmtDate(s.lastPay) : "-") + '</dd>' +
     '</dl>' + btns + '</div>';
 }
 
@@ -652,6 +675,9 @@ function renderAccountSelects(){
   var cur = $("pAccount").value;
   $("pAccount").innerHTML = opts || '<option value="">- erst Account anlegen -</option>';
   if(cur && accById(cur)) $("pAccount").value = cur;
+  var pcur = $("payAccount").value;
+  $("payAccount").innerHTML = opts || '<option value="">- erst Account anlegen -</option>';
+  if(pcur && accById(pcur)) $("payAccount").value = pcur;
   var fcur = $("fAccount").value;
   $("fAccount").innerHTML = '<option value="">Alle Accounts</option>' + opts;
   if(fcur && accById(fcur)) $("fAccount").value = fcur;
@@ -665,13 +691,11 @@ function filteredProducts(){
     .filter(function(p){
       if(fs === "aktiv") return p.status === "aktiv";
       if(fs === "storniert") return p.status === "storniert";
-      if(fs === "offen") return p.status === "aktiv" && !p.paid;
-      if(fs === "bezahlt") return p.status === "aktiv" && p.paid;
       if(fs === "nichtzugestellt") return p.status === "aktiv" && !p.delivered;
       if(fs === "keinerechnung") return p.status === "aktiv" && !p.invoiced;
       return true;
     })
-    .filter(function(p){ return !q || ((p.asin||"") + " " + (p.name||"")).toLowerCase().indexOf(q) !== -1; })
+    .filter(function(p){ return !q || ((p.asin||"") + " " + (p.name||"") + " " + (p.orderId||"")).toLowerCase().indexOf(q) !== -1; })
     .sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
 }
 
@@ -682,17 +706,14 @@ function renderProducts(){
     var a = accById(p.accountId);
     var isSt = p.status === "storniert";
     var d = diff(p), nd = nettoDiff(p);
-    var statusBadge = isSt
-      ? '<span class="badge storno">Storniert</span>'
-      : (p.paid ? '<span class="badge paid">Ausgezahlt</span>' : '<span class="badge open">Offen</span>');
-    var flags = isSt ? '' :
+    var flags =
       '<span class="flag ' + (p.delivered ? 'on' : '') + '" onclick="toggleDelivered(\'' + p.id + '\')" title="Erfolgreich zugestellt">Zugestellt</span>' +
       '<span class="flag ' + (p.invoiced ? 'on' : '') + '" onclick="toggleInvoiced(\'' + p.id + '\')" title="Rechnung erstellt">Rechnung</span>';
+    var statusCell = isSt ? '<span class="badge storno">Storniert</span>' : flags;
     var btns = isSt
       ? '<button class="tiny" onclick="toggleStorno(\'' + p.id + '\')">Reaktivieren</button>'
-      : '<button class="tiny" onclick="togglePaid(\'' + p.id + '\')">' + (p.paid ? 'Offen' : 'Ausgezahlt') + '</button>' +
-        '<button class="tiny" onclick="toggleStorno(\'' + p.id + '\')">Storno</button>';
-    var prodCell = '<b>' + esc(p.asin || "-") + '</b>' + (p.name ? '<span class="sub">' + esc(p.name) + '</span>' : '');
+      : '<button class="tiny" onclick="toggleStorno(\'' + p.id + '\')">Storno</button>';
+    var prodCell = '<b>' + esc(p.asin || "-") + '</b>' + (p.name ? '<span class="sub">' + esc(p.name) + '</span>' : '') + (p.orderId ? '<span class="sub">Nr. ' + esc(p.orderId) + '</span>' : '');
     return '<tr class="' + (isSt ? 'storno' : '') + '">' +
       '<td>' + fmtDate(p.date) + '</td>' +
       '<td class="strike">' + prodCell + '</td>' +
@@ -701,8 +722,7 @@ function renderProducts(){
       '<td class="num">' + fmt(Number(p.price||0)) + '</td>' +
       '<td class="num ' + (d >= 0 ? '' : 'negv') + '">' + fmt(d) + '</td>' +
       '<td class="num ' + (nd >= 0 ? 'pos' : 'negv') + '">' + fmt(nd) + '</td>' +
-      '<td class="num"><b>' + fmt(payout(p)) + '</b></td>' +
-      '<td>' + statusBadge + '<br>' + flags + '</td>' +
+      '<td>' + statusCell + '</td>' +
       '<td><div class="rowbtns">' + btns +
         '<button class="tiny" onclick="editProduct(\'' + p.id + '\')">Bearbeiten</button>' +
         '<button class="tiny danger" onclick="deleteProduct(\'' + p.id + '\')">Löschen</button>' +
@@ -715,21 +735,46 @@ function renderProducts(){
       '<td class="num">' + fmt(act.reduce(function(s,p){ return s + Number(p.price||0); }, 0)) + '</td>' +
       '<td class="num">' + fmt(act.reduce(function(s,p){ return s + diff(p); }, 0)) + '</td>' +
       '<td class="num">' + fmt(act.reduce(function(s,p){ return s + nettoDiff(p); }, 0)) + '</td>' +
-      '<td class="num">' + fmt(act.reduce(function(s,p){ return s + payout(p); }, 0)) + '</td>' +
       '<td colspan="2"></td></tr>'
     : "";
 }
 
+/* ---------- Auszahlungen ---------- */
+function renderPayments(){
+  var list = state.payments.slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
+  $("payEmpty").hidden = state.payments.length > 0;
+  $("payRows").innerHTML = list.map(function(x){
+    var a = accById(x.accountId);
+    var monat = x.month ? new Date(x.month + "-01T00:00").toLocaleDateString("de-DE", {month:"long", year:"numeric"}) : "-";
+    return '<tr>' +
+      '<td>' + fmtDate(x.date) + '</td>' +
+      '<td>' + monat + '</td>' +
+      '<td>' + (a ? esc(a.name) : "?") + '</td>' +
+      '<td class="num"><b>' + fmt(Number(x.amount||0)) + '</b></td>' +
+      '<td>' + esc(x.note || "") + '</td>' +
+      '<td><div class="rowbtns"><button class="tiny danger" onclick="deletePayment(\'' + x.id + '\')">Löschen</button></div></td>' +
+    '</tr>';
+  }).join("");
+  $("payFoot").innerHTML = list.length
+    ? '<tr><td colspan="3">Summe</td><td class="num">' +
+      fmt(list.reduce(function(s,x){ return s + Number(x.amount||0); }, 0)) +
+      '</td><td colspan="2"></td></tr>'
+    : "";
+}
+window.deletePayment = function(id){
+  if(!confirm("Auszahlung wirklich löschen?")) return;
+  state.payments = state.payments.filter(function(x){ return x.id !== id; });
+  save(); render();
+};
+
 /* ---------- Accounts ---------- */
 $("btnAccSave").onclick = function(){
   var name = $("accName").value.trim();
-  var pct = parseFloat($("accPct").value);
   if(!name){ alert("Bitte einen Namen eingeben."); return; }
-  if(!isFinite(pct) || pct < 0){ alert("Bitte einen gültigen Abschlag in % eingeben."); return; }
   if(editAccId){
-    var a = accById(editAccId); a.name = name; a.pct = pct;
+    var a = accById(editAccId); a.name = name;
   } else {
-    state.accounts.push({ id: uid(), name: name, pct: pct });
+    state.accounts.push({ id: uid(), name: name });
   }
   resetAccForm(); save(); render();
 };
@@ -737,7 +782,7 @@ $("btnAccCancel").onclick = resetAccForm;
 
 function resetAccForm(){
   editAccId = null;
-  $("accName").value = ""; $("accPct").value = "";
+  $("accName").value = "";
   $("accFormTitle").textContent = "Account hinzufügen";
   $("btnAccSave").textContent = "Account speichern";
   $("btnAccCancel").hidden = true;
@@ -745,7 +790,7 @@ function resetAccForm(){
 window.editAccount = function(id){
   var a = accById(id); if(!a) return;
   editAccId = id;
-  $("accName").value = a.name; $("accPct").value = a.pct;
+  $("accName").value = a.name;
   $("accFormTitle").textContent = "Account bearbeiten";
   $("btnAccSave").textContent = "Änderungen speichern";
   $("btnAccCancel").hidden = false;
@@ -765,19 +810,10 @@ function updateCutPreview(){
   var buy = parseFloat($("pBuy").value) || 0;
   var price = parseFloat($("pPrice").value) || 0;
   var korr = parseFloat($("pKorr").value) || 0;
-  var mode = $("pCutMode").value;
-  var cut = parseFloat($("pCut").value);
-  var a = accById($("pAccount").value);
-  if(!isFinite(cut) && a && mode !== "fix") cut = a.pct;
   var d = price - buy, nd = d + korr;
-  var txt = "Differenz: " + fmt(d) + " / Netto: " + fmt(nd);
-  if(isFinite(cut)){
-    var pay = mode === "fix" ? cut : (mode === "pctNetto" ? Math.max(0, nd) * cut / 100 : price * cut / 100);
-    txt += " / Auszahlung: " + fmt(pay) + " / dein Rest: " + fmt(nd - pay);
-  }
-  $("cutPreview").textContent = txt;
+  $("cutPreview").textContent = (price || buy) ? "Differenz: " + fmt(d) + " / Netto-Differenz: " + fmt(nd) : "";
 }
-["pBuy","pPrice","pKorr","pCut","pCutMode","pAccount"].forEach(function(id){
+["pBuy","pPrice","pKorr"].forEach(function(id){
   $(id).addEventListener("input", updateCutPreview);
 });
 
@@ -793,17 +829,10 @@ $("btnProdSave").onclick = function(){
   if(!isFinite(price) || price < 0){ alert("Bitte einen gültigen Verkaufspreis eingeben."); return; }
   var korr = parseFloat($("pKorr").value);
   if(!isFinite(korr)) korr = 0;
-  var mode = $("pCutMode").value;
-  var cut = parseFloat($("pCut").value);
-  if(!isFinite(cut)){
-    if(mode !== "fix") cut = accById(accountId).pct;
-    else { alert("Bitte einen festen Abschlag in € eingeben."); return; }
-  }
   var data = {
-    asin: asin, name: name, accountId: accountId,
+    asin: asin, name: name, orderId: $("pOrder").value.trim(), accountId: accountId,
     date: $("pDate").value || today(),
     buyPrice: buy, price: price, korrektur: korr,
-    cutMode: mode, cutVal: cut,
     delivered: $("pDelivered").checked,
     invoiced: $("pInvoiced").checked
   };
@@ -811,7 +840,7 @@ $("btnProdSave").onclick = function(){
     var p = state.products.find(function(x){ return x.id === editProdId; });
     Object.assign(p, data);
   } else {
-    state.products.push(Object.assign({ id: uid(), status: "aktiv", paid: false, paidDate: null }, data));
+    state.products.push(Object.assign({ id: uid(), status: "aktiv" }, data));
   }
   resetProdForm(); save(); render();
   showTab("produkte");
@@ -820,9 +849,8 @@ $("btnProdCancel").onclick = function(){ resetProdForm(); showTab("produkte"); }
 
 function resetProdForm(){
   editProdId = null;
-  ["pAsin","pName","pBuy","pPrice","pKorr","pCut"].forEach(function(id){ $(id).value = ""; });
+  ["pAsin","pName","pOrder","pBuy","pPrice","pKorr"].forEach(function(id){ $(id).value = ""; });
   $("pDate").value = today();
-  $("pCutMode").value = "pct";
   $("pDelivered").checked = false;
   $("pInvoiced").checked = false;
   $("prodFormTitle").textContent = "Produkt eintragen";
@@ -834,10 +862,10 @@ window.editProduct = function(id){
   var p = state.products.find(function(x){ return x.id === id; }); if(!p) return;
   editProdId = id;
   $("pAsin").value = p.asin || ""; $("pName").value = p.name || "";
+  $("pOrder").value = p.orderId || "";
   $("pAccount").value = p.accountId; $("pDate").value = p.date || "";
   $("pBuy").value = p.buyPrice; $("pPrice").value = p.price;
   $("pKorr").value = p.korrektur || "";
-  $("pCut").value = p.cutVal; $("pCutMode").value = p.cutMode;
   $("pDelivered").checked = !!p.delivered;
   $("pInvoiced").checked = !!p.invoiced;
   $("prodFormTitle").textContent = "Produkt bearbeiten";
@@ -853,13 +881,6 @@ window.deleteProduct = function(id){
 window.toggleStorno = function(id){
   var p = state.products.find(function(x){ return x.id === id; }); if(!p) return;
   p.status = p.status === "storniert" ? "aktiv" : "storniert";
-  if(p.status === "storniert"){ p.paid = false; p.paidDate = null; }
-  save(); render();
-};
-window.togglePaid = function(id){
-  var p = state.products.find(function(x){ return x.id === id; }); if(!p) return;
-  p.paid = !p.paid;
-  p.paidDate = p.paid ? today() : null;
   save(); render();
 };
 window.toggleDelivered = function(id){
@@ -912,9 +933,44 @@ $("btnSetupLater").onclick = function(){
 };
 $("btnGrantLoad").onclick = grantAndLoad;
 
+var AB_KEY = "einkauf-dashboard-lastbackup";
+function weeklyBackup(){
+  try{
+    var last = parseInt(localStorage.getItem(AB_KEY) || "0", 10);
+    if(Date.now() - last < 7*24*3600*1000) return;
+    if(!state.products.length && !state.accounts.length && !state.payments.length) return;
+    setTimeout(function(){
+      var blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "dashboard-backup-" + today() + ".json";
+      a.click(); URL.revokeObjectURL(a.href);
+      localStorage.setItem(AB_KEY, String(Date.now()));
+    }, 5000);
+  }catch(e){}
+}
+
 loadLocal();
 migrate();
 $("pDate").value = today();
+$("payDate").value = today();
+$("payMonth").value = today().slice(0,7);
+$("btnPaySave").onclick = function(){
+  var accountId = $("payAccount").value;
+  var amount = parseFloat($("payAmount").value);
+  if(!accountId || !accById(accountId)){ alert("Bitte einen Account auswählen."); return; }
+  if(!isFinite(amount) || amount <= 0){ alert("Bitte einen gültigen Betrag eingeben."); return; }
+  state.payments.push({
+    id: uid(), accountId: accountId,
+    month: $("payMonth").value || today().slice(0,7),
+    amount: amount,
+    date: $("payDate").value || today(),
+    note: $("payNote").value.trim()
+  });
+  $("payAmount").value = ""; $("payNote").value = "";
+  save(); render();
+};
+weeklyBackup();
 render();
 updateStorageStatus();
 tryRestoreFile();
@@ -926,6 +982,18 @@ var syncCfg = null, syncDocRef = null, syncActive = false;
 var clientId = uid();
 var syncPushTimer = null;
 
+var stornoOrders = {};
+function applyStorno(){
+  var changed = false;
+  state.products.forEach(function(p){
+    var oid = (p.orderId || "").trim();
+    if(p.status === "aktiv" && oid && stornoOrders[oid]){
+      p.status = "storniert";
+      changed = true;
+    }
+  });
+  if(changed){ saveLocal(); render(); pushSync(); }
+}
 function loadSyncCfg(){
   try{ syncCfg = JSON.parse(localStorage.getItem(SYNC_KEY) || "null"); }catch(e){ syncCfg = null; }
 }
@@ -961,12 +1029,21 @@ function initSync(){
       }
       if(d.writer !== clientId && d.data && Array.isArray(d.data.accounts) && Array.isArray(d.data.products)){
         state = d.data; migrate(); saveLocal(); render();
+        applyStorno();
       }
       setSyncStatus("Cloud-Sync aktiv: " + syncCfg.workspace);
     }, function(err){
       syncActive = false;
       setSyncStatus("Cloud-Sync Fehler: " + err.message);
     });
+    db.collection("workspaces").doc(syncCfg.workspace + "__storno").onSnapshot(function(doc){
+      var d = doc.data();
+      stornoOrders = {};
+      if(d && d.orders){
+        Object.keys(d.orders).forEach(function(k){ stornoOrders[k] = true; });
+      }
+      applyStorno();
+    }, function(){ /* Storno-Kanal optional */ });
   })
   .catch(function(err){
     setSyncStatus("Cloud-Sync nicht verfügbar (offline?)");
