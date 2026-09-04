@@ -323,8 +323,18 @@
         <select id="payAccount"></select>
       </div>
       <div class="field">
-        <label for="payMonth">Für Monat</label>
-        <input id="payMonth" type="month">
+        <label for="payMonthSel">Für Monat</label>
+        <div style="display:flex; gap:0.4rem;">
+          <select id="payMonthSel" style="flex:1.4;">
+            <option value="01">Januar</option><option value="02">Februar</option>
+            <option value="03">März</option><option value="04">April</option>
+            <option value="05">Mai</option><option value="06">Juni</option>
+            <option value="07">Juli</option><option value="08">August</option>
+            <option value="09">September</option><option value="10">Oktober</option>
+            <option value="11">November</option><option value="12">Dezember</option>
+          </select>
+          <select id="payYearSel" style="flex:1;"></select>
+        </div>
       </div>
     </div>
     <div class="row2">
@@ -343,6 +353,20 @@
     </div>
     <button class="primary" id="btnPaySave">Auszahlung speichern</button>
   </div>
+  <div class="panel" style="margin-bottom:1.25rem;">
+    <h2>Monatsübersicht</h2>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr><th>Monat</th><th>Account</th><th class="num">Erwirtschaftet</th><th class="num">Ausgezahlt</th><th class="num">Verbleibend</th></tr>
+        </thead>
+        <tbody id="monthRows"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="monthEmpty" hidden>Noch keine Daten für eine Monatsübersicht.</div>
+    <div class="small muted" style="margin-top:0.5rem;">Erwirtschaftet = Netto-Differenz (VK − EK ± Korrekturen) aller aktiven Produkte mit Kaufdatum im jeweiligen Monat — das ist der Betrag, der an den Account-Besitzer geht.</div>
+  </div>
+
   <div class="panel">
     <h2>Bisherige Auszahlungen</h2>
     <div style="overflow-x:auto;">
@@ -610,7 +634,7 @@ function accStats(a){
 
 /* ---------- Rendering ---------- */
 function render(){
-  renderSummary(); renderAccOverview(); renderAccounts(); renderAccountSelects(); renderProducts(); renderPayments(); updateCutPreview();
+  renderSummary(); renderAccOverview(); renderAccounts(); renderAccountSelects(); renderProducts(); renderPayments(); renderMonths(); updateCutPreview();
 }
 
 function renderSummary(){
@@ -646,9 +670,10 @@ function accCard(a, withButtons){
     '</div>' +
     '<dl>' +
       '<dt>Produkte (aktiv / storniert)</dt><dd>' + s.nAct + ' / ' + s.nSt + '</dd>' +
-      '<dt>Netto-Differenz</dt><dd>' + fmt(s.netto) + '</dd>' +
+      '<dt>Erwirtschaftet (Netto-Diff.)</dt><dd>' + fmt(s.netto) + '</dd>' +
       '<dt>Ausgezahlt gesamt</dt><dd>' + fmt(s.paidSum) + '</dd>' +
-      '<dt>Letzte Auszahlung</dt><dd class="open">' + (s.lastPay ? fmtDate(s.lastPay) : "-") + '</dd>' +
+      '<dt>Noch auszuzahlen</dt><dd class="open">' + fmt(s.netto - s.paidSum) + '</dd>' +
+      '<dt>Letzte Auszahlung</dt><dd>' + (s.lastPay ? fmtDate(s.lastPay) : "-") + '</dd>' +
     '</dl>' + btns + '</div>';
 }
 
@@ -760,6 +785,42 @@ function renderPayments(){
       fmt(list.reduce(function(s,x){ return s + Number(x.amount||0); }, 0)) +
       '</td><td colspan="2"></td></tr>'
     : "";
+}
+function renderMonths(){
+  var map = {};
+  function slot(month, accId){
+    var k = month + "|" + accId;
+    if(!map[k]) map[k] = { month: month, accId: accId, earned: 0, paid: 0 };
+    return map[k];
+  }
+  state.products.forEach(function(p){
+    if(p.status !== "aktiv" || !p.date) return;
+    slot(p.date.slice(0,7), p.accountId).earned += nettoDiff(p);
+  });
+  state.payments.forEach(function(x){
+    if(!x.month) return;
+    slot(x.month, x.accountId).paid += Number(x.amount||0);
+  });
+  var rows = Object.keys(map).map(function(k){ return map[k]; });
+  $("monthEmpty").hidden = rows.length > 0;
+  rows.sort(function(a,b){
+    if(a.month !== b.month) return b.month.localeCompare(a.month);
+    var an = accById(a.accId), bn = accById(b.accId);
+    return (an ? an.name : "").localeCompare(bn ? bn.name : "");
+  });
+  $("monthRows").innerHTML = rows.map(function(r){
+    var a = accById(r.accId);
+    var rest = r.earned - r.paid;
+    var restCls = rest > 0.005 ? "negv" : (rest < -0.005 ? "pos" : "");
+    var monat = new Date(r.month + "-01T00:00").toLocaleDateString("de-DE", {month:"long", year:"numeric"});
+    return '<tr>' +
+      '<td>' + monat + '</td>' +
+      '<td>' + (a ? esc(a.name) : "?") + '</td>' +
+      '<td class="num">' + fmt(r.earned) + '</td>' +
+      '<td class="num">' + fmt(r.paid) + '</td>' +
+      '<td class="num"><b class="' + restCls + '">' + fmt(rest) + '</b></td>' +
+    '</tr>';
+  }).join("");
 }
 window.deletePayment = function(id){
   if(!confirm("Auszahlung wirklich löschen?")) return;
@@ -954,7 +1015,16 @@ loadLocal();
 migrate();
 $("pDate").value = today();
 $("payDate").value = today();
-$("payMonth").value = today().slice(0,7);
+(function(){
+  var y = new Date().getFullYear();
+  var opts = "";
+  for(var i = y - 2; i <= y + 1; i++){
+    opts += '<option value="' + i + '">' + i + '</option>';
+  }
+  $("payYearSel").innerHTML = opts;
+  $("payYearSel").value = String(y);
+  $("payMonthSel").value = today().slice(5,7);
+})();
 $("btnPaySave").onclick = function(){
   var accountId = $("payAccount").value;
   var amount = parseFloat($("payAmount").value);
@@ -962,7 +1032,7 @@ $("btnPaySave").onclick = function(){
   if(!isFinite(amount) || amount <= 0){ alert("Bitte einen gültigen Betrag eingeben."); return; }
   state.payments.push({
     id: uid(), accountId: accountId,
-    month: $("payMonth").value || today().slice(0,7),
+    month: $("payYearSel").value + "-" + $("payMonthSel").value,
     amount: amount,
     date: $("payDate").value || today(),
     note: $("payNote").value.trim()
