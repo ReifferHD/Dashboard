@@ -262,9 +262,15 @@
         <input id="pName" placeholder="z. B. Lego Set 42115">
       </div>
     </div>
-    <div class="field">
-      <label for="pOrder">Bestellnummer (für automatische Storno-Erkennung)</label>
-      <input id="pOrder" placeholder="z. B. 302-1234567-1234567">
+    <div class="row2">
+      <div class="field">
+        <label for="pOrder">Bestellnummer (für automatische Storno-Erkennung)</label>
+        <input id="pOrder" placeholder="z. B. 302-1234567-1234567">
+      </div>
+      <div class="field">
+        <label for="pReNr">RE-Nummer (Rechnung)</label>
+        <input id="pReNr" placeholder="z. B. RE0073">
+      </div>
     </div>
     <div class="row2">
       <div class="field">
@@ -474,6 +480,7 @@ function migrate(){
   state.products.forEach(function(p){
     if(p.asin === undefined) p.asin = "";
     if(p.orderId === undefined) p.orderId = "";
+    if(p.reNr === undefined) p.reNr = "";
     if(p.buyPrice === undefined) p.buyPrice = 0;
     if(p.korrektur === undefined) p.korrektur = 0;
     if(p.delivered === undefined) p.delivered = false;
@@ -783,7 +790,7 @@ function filteredProducts(){
       if(fs === "keinerechnung") return p.status === "aktiv" && !p.invoiced;
       return true;
     })
-    .filter(function(p){ return !q || ((p.asin||"") + " " + (p.name||"") + " " + (p.orderId||"")).toLowerCase().indexOf(q) !== -1; })
+    .filter(function(p){ return !q || ((p.asin||"") + " " + (p.name||"") + " " + (p.orderId||"") + " " + (p.reNr||"")).toLowerCase().indexOf(q) !== -1; })
     .sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
 }
 
@@ -801,7 +808,7 @@ function renderProducts(){
     var btns = isSt
       ? '<button class="tiny" onclick="toggleStorno(\'' + p.id + '\')">Reaktivieren</button>'
       : '<button class="tiny" onclick="toggleStorno(\'' + p.id + '\')">Storno</button>';
-    var prodCell = '<b>' + esc(p.asin || "-") + '</b>' + (p.name ? '<span class="sub">' + esc(p.name) + '</span>' : '') + (p.orderId ? '<span class="sub">Nr. ' + esc(p.orderId) + '</span>' : '');
+    var prodCell = '<b>' + esc(p.asin || "-") + '</b>' + (p.name ? '<span class="sub">' + esc(p.name) + '</span>' : '') + (p.orderId ? '<span class="sub">Nr. ' + esc(p.orderId) + '</span>' : '') + (p.reNr ? '<span class="sub">' + esc(p.reNr) + '</span>' : '');
     return '<tr class="' + (isSt ? 'storno' : '') + '">' +
       '<td>' + fmtDate(p.date) + '</td>' +
       '<td class="strike">' + prodCell + '</td>' +
@@ -955,7 +962,7 @@ $("btnProdSave").onclick = function(){
   var korr = parseFloat($("pKorr").value);
   if(!isFinite(korr)) korr = 0;
   var base = {
-    asin: asin, name: name, orderId: $("pOrder").value.trim(),
+    asin: asin, name: name, orderId: $("pOrder").value.trim(), reNr: $("pReNr").value.trim(),
     date: $("pDate").value || today(),
     buyPrice: buy, price: price, korrektur: korr,
     delivered: $("pDelivered").checked,
@@ -976,7 +983,7 @@ $("btnProdCancel").onclick = function(){ resetProdForm(); showTab("produkte"); }
 
 function resetProdForm(){
   editProdId = null;
-  ["pAsin","pName","pOrder","pBuy","pPrice","pKorr"].forEach(function(id){ $(id).value = ""; });
+  ["pAsin","pName","pOrder","pReNr","pBuy","pPrice","pKorr"].forEach(function(id){ $(id).value = ""; });
   $("pDate").value = today();
   setSelectedAccounts([]);
   $("pDelivered").checked = false;
@@ -991,6 +998,7 @@ window.editProduct = function(id){
   editProdId = id;
   $("pAsin").value = p.asin || ""; $("pName").value = p.name || "";
   $("pOrder").value = p.orderId || "";
+  $("pReNr").value = p.reNr || "";
   setSelectedAccounts([p.accountId]); $("pDate").value = p.date || "";
   $("pBuy").value = p.buyPrice; $("pPrice").value = p.price;
   $("pKorr").value = p.korrektur || "";
