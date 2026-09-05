@@ -175,6 +175,25 @@
   .empty{padding:1.5rem; text-align:center; color:var(--ink-soft);}
   tfoot td{font-weight:700; border-bottom:none; border-top:2px solid var(--ink-soft);}
 
+  .msel{position:relative;}
+  .mselbtn{
+    width:100%; text-align:left; font-weight:400; font-size:0.9rem;
+    padding:0.45rem 0.55rem; background:var(--panel-2); border:1px solid var(--line);
+    border-radius:5px; color:var(--ink);
+  }
+  .mselbtn.placeholder{color:#5E6F78;}
+  .mseldrop{
+    position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:30;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:5px;
+    max-height:230px; overflow:auto; padding:0.3rem;
+    box-shadow:0 8px 24px rgba(0,0,0,0.45);
+  }
+  .mselopt{
+    display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0.5rem;
+    border-radius:4px; cursor:pointer; font-size:0.9rem; color:var(--ink); margin:0;
+  }
+  .mselopt:hover{background:var(--panel);}
+  .mselopt input{width:auto; accent-color:var(--accent);}
   .modal{position:fixed; inset:0; background:rgba(0,0,0,0.65); display:flex;
     align-items:center; justify-content:center; z-index:50; padding:1rem;}
   .modal .box{background:var(--panel); border:1px solid var(--line);
@@ -249,8 +268,11 @@
     </div>
     <div class="row2">
       <div class="field">
-        <label for="pAccount">Gekauft über Account</label>
-        <select id="pAccount"></select>
+        <label>Gekauft über Account(s)</label>
+        <div class="msel">
+          <button type="button" class="mselbtn placeholder" id="pAccountBtn">Accounts wählen …</button>
+          <div class="mseldrop" id="pAccountDrop" hidden></div>
+        </div>
       </div>
       <div class="field">
         <label for="pDate">Kaufdatum</label>
@@ -696,9 +718,14 @@ function renderAccountSelects(){
   var opts = state.accounts.map(function(a){
     return '<option value="' + a.id + '">' + esc(a.name) + '</option>';
   }).join("");
-  var cur = $("pAccount").value;
-  $("pAccount").innerHTML = opts || '<option value="">- erst Account anlegen -</option>';
-  if(cur && accById(cur)) $("pAccount").value = cur;
+  var checked = getSelectedAccounts();
+  $("pAccountDrop").innerHTML = state.accounts.length
+    ? state.accounts.map(function(a){
+        return '<label class="mselopt"><input type="checkbox" value="' + a.id + '"' +
+          (checked.indexOf(a.id) !== -1 ? ' checked' : '') + '> ' + esc(a.name) + '</label>';
+      }).join("")
+    : '<div class="mselopt muted">Erst im Reiter Accounts anlegen</div>';
+  updateAccountBtn();
   var pcur = $("payAccount").value;
   $("payAccount").innerHTML = opts || '<option value="">- erst Account anlegen -</option>';
   if(pcur && accById(pcur)) $("payAccount").value = pcur;
@@ -706,6 +733,43 @@ function renderAccountSelects(){
   $("fAccount").innerHTML = '<option value="">Alle Accounts</option>' + opts;
   if(fcur && accById(fcur)) $("fAccount").value = fcur;
 }
+
+function getSelectedAccounts(){
+  var out = [];
+  var drop = $("pAccountDrop");
+  if(drop){
+    drop.querySelectorAll("input:checked").forEach(function(i){ out.push(i.value); });
+  }
+  return out;
+}
+function setSelectedAccounts(ids){
+  $("pAccountDrop").querySelectorAll("input").forEach(function(i){
+    i.checked = ids.indexOf(i.value) !== -1;
+  });
+  updateAccountBtn();
+}
+function updateAccountBtn(){
+  var names = getSelectedAccounts().map(function(id){
+    var a = accById(id); return a ? a.name : "?";
+  });
+  var btn = $("pAccountBtn");
+  if(names.length){
+    btn.textContent = names.join(", ");
+    btn.classList.remove("placeholder");
+  } else {
+    btn.textContent = "Accounts wählen …";
+    btn.classList.add("placeholder");
+  }
+}
+$("pAccountBtn").onclick = function(e){
+  e.stopPropagation();
+  $("pAccountDrop").hidden = !$("pAccountDrop").hidden;
+};
+$("pAccountDrop").addEventListener("click", function(e){ e.stopPropagation(); });
+$("pAccountDrop").addEventListener("change", updateAccountBtn);
+document.addEventListener("click", function(){
+  if(!$("pAccountDrop").hidden) $("pAccountDrop").hidden = true;
+});
 
 function filteredProducts(){
   var fa = $("fAccount").value, fs = $("fStatus").value,
@@ -880,17 +944,18 @@ function updateCutPreview(){
 $("btnProdSave").onclick = function(){
   var asin = $("pAsin").value.trim();
   var name = $("pName").value.trim();
-  var accountId = $("pAccount").value;
+  var accIds = getSelectedAccounts();
   var buy = parseFloat($("pBuy").value);
   var price = parseFloat($("pPrice").value);
   if(!asin && !name){ alert("Bitte ASIN oder Produktname eingeben."); return; }
-  if(!accountId || !accById(accountId)){ alert("Bitte zuerst im Reiter 'Accounts' einen Account anlegen."); return; }
+  if(!accIds.length){ alert("Bitte mindestens einen Account auswählen."); return; }
+  if(editProdId && accIds.length > 1){ alert("Beim Bearbeiten bitte nur einen Account auswählen."); return; }
   if(!isFinite(buy) || buy < 0) buy = 0;
   if(!isFinite(price) || price < 0){ alert("Bitte einen gültigen Verkaufspreis eingeben."); return; }
   var korr = parseFloat($("pKorr").value);
   if(!isFinite(korr)) korr = 0;
-  var data = {
-    asin: asin, name: name, orderId: $("pOrder").value.trim(), accountId: accountId,
+  var base = {
+    asin: asin, name: name, orderId: $("pOrder").value.trim(),
     date: $("pDate").value || today(),
     buyPrice: buy, price: price, korrektur: korr,
     delivered: $("pDelivered").checked,
@@ -898,9 +963,11 @@ $("btnProdSave").onclick = function(){
   };
   if(editProdId){
     var p = state.products.find(function(x){ return x.id === editProdId; });
-    Object.assign(p, data);
+    Object.assign(p, base, { accountId: accIds[0] });
   } else {
-    state.products.push(Object.assign({ id: uid(), status: "aktiv" }, data));
+    accIds.forEach(function(aid){
+      state.products.push(Object.assign({ id: uid(), status: "aktiv", accountId: aid }, base));
+    });
   }
   resetProdForm(); save(); render();
   showTab("produkte");
@@ -911,6 +978,7 @@ function resetProdForm(){
   editProdId = null;
   ["pAsin","pName","pOrder","pBuy","pPrice","pKorr"].forEach(function(id){ $(id).value = ""; });
   $("pDate").value = today();
+  setSelectedAccounts([]);
   $("pDelivered").checked = false;
   $("pInvoiced").checked = false;
   $("prodFormTitle").textContent = "Produkt eintragen";
@@ -923,7 +991,7 @@ window.editProduct = function(id){
   editProdId = id;
   $("pAsin").value = p.asin || ""; $("pName").value = p.name || "";
   $("pOrder").value = p.orderId || "";
-  $("pAccount").value = p.accountId; $("pDate").value = p.date || "";
+  setSelectedAccounts([p.accountId]); $("pDate").value = p.date || "";
   $("pBuy").value = p.buyPrice; $("pPrice").value = p.price;
   $("pKorr").value = p.korrektur || "";
   $("pDelivered").checked = !!p.delivered;
