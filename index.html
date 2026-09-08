@@ -349,13 +349,14 @@
         <option value="keinerechnung">Rechnung fehlt</option>
       </select>
       <input id="fSearch" placeholder="Suche ASIN / Produkt …" style="flex:2 1 200px;">
+      <input type="file" id="rowInvFile" accept="application/pdf,image/*" hidden>
     </div>
     <div style="overflow-x:auto;">
       <table>
         <thead>
           <tr>
             <th>Datum</th><th>ASIN / Produkt</th><th>Account</th>
-            <th class="num">EK</th><th class="num">Brutto-EK</th><th class="num">VK</th>
+            <th class="num">EK</th><th class="num">VK</th><th class="num">Brutto-VK</th>
             <th class="num">Differenz</th><th class="num">Netto-Diff.</th>
             <th>Status</th><th></th>
           </tr>
@@ -864,12 +865,13 @@ function renderProducts(){
       '<td class="strike">' + prodCell + '</td>' +
       '<td>' + (a ? esc(a.name) : "?") + '</td>' +
       '<td class="num">' + fmt(Number(p.buyPrice||0)) + '</td>' +
-      '<td class="num" title="netto × ' + (p.vat||19) + ' %">' + fmt(Number(p.buyPrice||0) * (1 + (p.vat||19)/100)) + '</td>' +
       '<td class="num">' + fmt(Number(p.price||0)) + '</td>' +
+      '<td class="num" title="netto × ' + (p.vat||19) + ' %">' + fmt(Number(p.price||0) * (1 + (p.vat||19)/100)) + '</td>' +
       '<td class="num ' + (d >= 0 ? '' : 'negv') + '">' + fmt(d) + '</td>' +
       '<td class="num ' + (nd >= 0 ? 'pos' : 'negv') + '">' + fmt(nd) + '</td>' +
       '<td>' + statusCell + '</td>' +
       '<td><div class="rowbtns">' + btns +
+        '<button class="tiny" onclick="rowInvUpload(\'' + p.id + '\')">' + (p.invFileId ? 'RE ersetzen' : 'RE hochladen') + '</button>' +
         '<button class="tiny" onclick="editProduct(\'' + p.id + '\')">Bearbeiten</button>' +
         '<button class="tiny danger" onclick="deleteProduct(\'' + p.id + '\')">Löschen</button>' +
       '</div></td></tr>';
@@ -878,8 +880,8 @@ function renderProducts(){
   $("prodFoot").innerHTML = list.length
     ? '<tr><td colspan="3">Summe (gefiltert, ohne Stornos)</td>' +
       '<td class="num">' + fmt(act.reduce(function(s,p){ return s + Number(p.buyPrice||0); }, 0)) + '</td>' +
-      '<td class="num">' + fmt(act.reduce(function(s,p){ return s + Number(p.buyPrice||0) * (1 + (p.vat||19)/100); }, 0)) + '</td>' +
       '<td class="num">' + fmt(act.reduce(function(s,p){ return s + Number(p.price||0); }, 0)) + '</td>' +
+      '<td class="num">' + fmt(act.reduce(function(s,p){ return s + Number(p.price||0) * (1 + (p.vat||19)/100); }, 0)) + '</td>' +
       '<td class="num">' + fmt(act.reduce(function(s,p){ return s + diff(p); }, 0)) + '</td>' +
       '<td class="num">' + fmt(act.reduce(function(s,p){ return s + nettoDiff(p); }, 0)) + '</td>' +
       '<td colspan="2"></td></tr>'
@@ -1154,6 +1156,36 @@ $("btnSetupLater").onclick = function(){
   $("setupBanner").hidden = true;
 };
 $("btnGrantLoad").onclick = grantAndLoad;
+var rowInvTarget = null;
+window.rowInvUpload = function(pid){
+  if(!fsDb || !syncActive){ alert("Für Rechnungs-Anhänge muss der Cloud-Sync aktiv sein."); return; }
+  rowInvTarget = pid;
+  $("rowInvFile").click();
+};
+$("rowInvFile").onchange = function(e){
+  var f = e.target.files[0]; e.target.value = "";
+  if(!f || !rowInvTarget) return;
+  if(f.size > 700 * 1024){
+    alert("Datei ist zu groß (max. 700 KB). Tipp: PDF verkleinern oder Foto komprimieren.");
+    return;
+  }
+  var pid = rowInvTarget; rowInvTarget = null;
+  var r = new FileReader();
+  r.onload = function(){
+    var p = state.products.find(function(x){ return x.id === pid; });
+    if(!p) return;
+    var fid = uid();
+    invDocRef(fid).set({
+      name: f.name, type: f.type || "application/pdf",
+      data: String(r.result).split(",")[1], ts: Date.now()
+    }).then(function(){
+      deleteInvDoc(p.invFileId);
+      p.invFileId = fid; p.invFileName = f.name;
+      save(); render();
+    }).catch(function(){ alert("Rechnung konnte nicht hochgeladen werden."); });
+  };
+  r.readAsDataURL(f);
+};
 $("btnInvPick").onclick = function(){ $("invFile").click(); };
 $("btnInvClear").onclick = function(){
   pendingInv = null; invRemove = true;
