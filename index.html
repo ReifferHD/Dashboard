@@ -280,6 +280,15 @@
       <div class="small muted" style="margin-bottom:0.5rem;">Bestell- und RE-Nummer pro Account:</div>
       <div id="perAccList"></div>
     </div>
+    <div class="field">
+      <label>Rechnung anhängen (PDF oder Foto, max. 700 KB)</label>
+      <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+        <button type="button" id="btnInvPick">Datei wählen</button>
+        <span class="small muted" id="invFileInfo">keine Datei</span>
+        <button type="button" class="tiny danger" id="btnInvClear" hidden>Entfernen</button>
+      </div>
+      <input type="file" id="invFile" accept="application/pdf,image/*" hidden>
+    </div>
     <div class="row2">
       <div class="field">
         <label>Gekauft über Account(s)</label>
@@ -498,6 +507,8 @@ function migrate(){
     if(p.asin === undefined) p.asin = "";
     if(p.orderId === undefined) p.orderId = "";
     if(p.reNr === undefined) p.reNr = "";
+    if(p.invFileId === undefined) p.invFileId = "";
+    if(p.invFileName === undefined) p.invFileName = "";
     if(p.vat === undefined) p.vat = /esn|kaffee|7\s*%/i.test(p.name || "") ? 7 : 19;
     if(p.buyPrice === undefined) p.buyPrice = 0;
     if(p.korrektur === undefined) p.korrektur = 0;
@@ -846,7 +857,8 @@ function renderProducts(){
     var btns = isSt
       ? '<button class="tiny" onclick="toggleStorno(\'' + p.id + '\')">Reaktivieren</button>'
       : '<button class="tiny" onclick="toggleStorno(\'' + p.id + '\')">Storno</button>';
-    var prodCell = '<b>' + esc(p.asin || "-") + '</b>' + (p.name ? '<span class="sub">' + esc(p.name) + '</span>' : '') + (p.orderId ? '<span class="sub">Nr. ' + esc(p.orderId) + '</span>' : '') + (p.reNr ? '<span class="sub">' + esc(p.reNr) + '</span>' : '');
+    var prodCell = '<b>' + esc(p.asin || "-") + '</b>' + (p.name ? '<span class="sub">' + esc(p.name) + '</span>' : '') + (p.orderId ? '<span class="sub">Nr. ' + esc(p.orderId) + '</span>' : '') + (p.reNr ? '<span class="sub">' + esc(p.reNr) + '</span>' : '') +
+      (p.invFileId ? '<span class="sub"><a href="#" onclick="openInvoice(\'' + p.id + '\'); return false;" style="color:var(--accent);">Rechnung öffnen</a></span>' : '');
     return '<tr class="' + (isSt ? 'storno' : '') + '">' +
       '<td>' + fmtDate(p.date) + '</td>' +
       '<td class="strike">' + prodCell + '</td>' +
@@ -1015,15 +1027,26 @@ $("btnProdSave").onclick = function(){
     document.querySelectorAll("#perAccList .pa-order").forEach(function(i){ (perAcc[i.dataset.acc] = perAcc[i.dataset.acc] || {}).o = i.value.trim(); });
     document.querySelectorAll("#perAccList .pa-re").forEach(function(i){ (perAcc[i.dataset.acc] = perAcc[i.dataset.acc] || {}).r = i.value.trim(); });
   }
+  var newFileId = null;
+  if(pendingInv){
+    if(!fsDb || !syncActive){ alert("Für Rechnungs-Anhänge muss der Cloud-Sync aktiv sein."); return; }
+    newFileId = uid();
+    invDocRef(newFileId).set({
+      name: pendingInv.name, type: pendingInv.type, data: pendingInv.data, ts: Date.now()
+    }).catch(function(){ alert("Rechnung konnte nicht hochgeladen werden — Eintrag ist gespeichert, Anhang bitte über Bearbeiten erneut versuchen."); });
+  }
   if(editProdId){
     var p = state.products.find(function(x){ return x.id === editProdId; });
     Object.assign(p, base, { accountId: accIds[0], orderId: $("pOrder").value.trim(), reNr: $("pReNr").value.trim() });
+    if(invRemove){ deleteInvDoc(p.invFileId); p.invFileId = ""; p.invFileName = ""; }
+    if(newFileId){ deleteInvDoc(p.invFileId); p.invFileId = newFileId; p.invFileName = pendingInv.name; }
   } else {
     accIds.forEach(function(aid){
       var nums = multi
         ? { orderId: (perAcc[aid] && perAcc[aid].o) || "", reNr: (perAcc[aid] && perAcc[aid].r) || "" }
         : { orderId: $("pOrder").value.trim(), reNr: $("pReNr").value.trim() };
-      state.products.push(Object.assign({ id: uid(), status: "aktiv", accountId: aid }, base, nums));
+      state.products.push(Object.assign({ id: uid(), status: "aktiv", accountId: aid,
+        invFileId: newFileId || "", invFileName: newFileId ? pendingInv.name : "" }, base, nums));
     });
   }
   resetProdForm(); save(); render();
@@ -1036,6 +1059,9 @@ function resetProdForm(){
   ["pAsin","pName","pOrder","pReNr","pBuy","pPrice","pKorr"].forEach(function(id){ $(id).value = ""; });
   $("pDate").value = today();
   $("pVat").value = "19";
+  pendingInv = null; invRemove = false;
+  $("invFileInfo").textContent = "keine Datei";
+  $("btnInvClear").hidden = true;
   $("perAccList").innerHTML = ""; $("perAccWrap").hidden = true; $("singleNrRow").hidden = false;
   setSelectedAccounts([]);
   updatePerAccFields();
@@ -1053,6 +1079,9 @@ window.editProduct = function(id){
   $("pOrder").value = p.orderId || "";
   $("pReNr").value = p.reNr || "";
   $("pVat").value = String(p.vat || 19);
+  pendingInv = null; invRemove = false;
+  $("invFileInfo").textContent = p.invFileName ? p.invFileName + " (gespeichert)" : "keine Datei";
+  $("btnInvClear").hidden = !p.invFileId;
   updatePerAccFields();
   setSelectedAccounts([p.accountId]); $("pDate").value = p.date || "";
   $("pBuy").value = p.buyPrice; $("pPrice").value = p.price;
@@ -1066,6 +1095,8 @@ window.editProduct = function(id){
 };
 window.deleteProduct = function(id){
   if(!confirm("Produkt wirklich löschen? (Für Stornierungen besser den Storno-Button nutzen.)")) return;
+  var p = state.products.find(function(x){ return x.id === id; });
+  if(p && p.invFileId) deleteInvDoc(p.invFileId);
   state.products = state.products.filter(function(p){ return p.id !== id; });
   save(); render();
 };
@@ -1123,6 +1154,28 @@ $("btnSetupLater").onclick = function(){
   $("setupBanner").hidden = true;
 };
 $("btnGrantLoad").onclick = grantAndLoad;
+$("btnInvPick").onclick = function(){ $("invFile").click(); };
+$("btnInvClear").onclick = function(){
+  pendingInv = null; invRemove = true;
+  $("invFileInfo").textContent = "keine Datei";
+  $("btnInvClear").hidden = true;
+};
+$("invFile").onchange = function(e){
+  var f = e.target.files[0]; if(!f) return;
+  if(f.size > 700 * 1024){
+    alert("Datei ist zu groß (max. 700 KB). Tipp: PDF verkleinern oder Foto komprimieren.");
+    e.target.value = ""; return;
+  }
+  var r = new FileReader();
+  r.onload = function(){
+    pendingInv = { name: f.name, type: f.type || "application/pdf", data: String(r.result).split(",")[1] };
+    invRemove = false;
+    $("invFileInfo").textContent = f.name + " (" + Math.round(f.size / 1024) + " KB)";
+    $("btnInvClear").hidden = false;
+  };
+  r.readAsDataURL(f);
+  e.target.value = "";
+};
 
 var AB_KEY = "einkauf-dashboard-lastbackup";
 function weeklyBackup(){
@@ -1183,6 +1236,33 @@ var clientId = uid();
 var syncPushTimer = null;
 
 var inboxOrders = {}, inboxRef = null;
+var fsDb = null;
+var pendingInv = null, invRemove = false;
+function invDocRef(id){
+  return fsDb.collection("workspaces").doc(syncCfg.workspace + "__file_" + id);
+}
+function deleteInvDoc(id){
+  if(fsDb && id){ invDocRef(id).delete().catch(function(){}); }
+}
+window.openInvoice = function(pid){
+  var p = state.products.find(function(x){ return x.id === pid; });
+  if(!p || !p.invFileId) return;
+  if(!fsDb){ alert("Zum Öffnen von Anhängen muss der Cloud-Sync aktiv sein."); return; }
+  invDocRef(p.invFileId).get().then(function(doc){
+    var d = doc.data();
+    if(!d || !d.data){ alert("Anhang nicht gefunden."); return; }
+    var bin = atob(d.data);
+    var arr = new Uint8Array(bin.length);
+    for(var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    var blob = new Blob([arr], { type: d.type || "application/pdf" });
+    var url = URL.createObjectURL(blob);
+    var wn = window.open(url, "_blank");
+    if(!wn){
+      var a = document.createElement("a");
+      a.href = url; a.download = d.name || "rechnung.pdf"; a.click();
+    }
+  }).catch(function(){ alert("Anhang konnte nicht geladen werden."); });
+};
 function renderInbox(){
   if(typeof inboxOrders === "undefined" || !inboxOrders) inboxOrders = {};
   var known = {};
@@ -1265,6 +1345,7 @@ function initSync(){
   .then(function(){
     firebase.initializeApp(syncCfg.config);
     var db = firebase.firestore();
+    fsDb = db;
     syncDocRef = db.collection("workspaces").doc(syncCfg.workspace);
     syncDocRef.onSnapshot(function(doc){
       syncActive = true;
