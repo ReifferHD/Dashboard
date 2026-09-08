@@ -250,6 +250,10 @@
 </section>
 
 <section class="tab" id="tab-eintragen">
+  <div class="panel narrow" id="inboxPanel" hidden style="margin-bottom:1.25rem;">
+    <h2>Aus E-Mails erkannte Käufe</h2>
+    <div id="inboxList"></div>
+  </div>
   <div class="panel narrow">
     <h2 id="prodFormTitle">Produkt eintragen</h2>
     <div class="row2">
@@ -262,7 +266,7 @@
         <input id="pName" placeholder="z. B. Lego Set 42115">
       </div>
     </div>
-    <div class="row2">
+    <div class="row2" id="singleNrRow">
       <div class="field">
         <label for="pOrder">Bestellnummer (für automatische Storno-Erkennung)</label>
         <input id="pOrder" placeholder="z. B. 302-1234567-1234567">
@@ -271,6 +275,10 @@
         <label for="pReNr">RE-Nummer (Rechnung)</label>
         <input id="pReNr" placeholder="z. B. RE0073">
       </div>
+    </div>
+    <div id="perAccWrap" hidden style="border:1px solid var(--line); border-radius:5px; padding:0.6rem; margin-bottom:0.65rem;">
+      <div class="small muted" style="margin-bottom:0.5rem;">Bestell- und RE-Nummer pro Account:</div>
+      <div id="perAccList"></div>
     </div>
     <div class="row2">
       <div class="field">
@@ -295,9 +303,18 @@
         <input id="pPrice" type="number" min="0" step="0.01" placeholder="0,00">
       </div>
     </div>
-    <div class="field">
-      <label for="pKorr">Mögliche Korrekturen (±€)</label>
-      <input id="pKorr" type="number" step="0.01" placeholder="z. B. -5,00">
+    <div class="row2">
+      <div class="field">
+        <label for="pKorr">Mögliche Korrekturen (±€)</label>
+        <input id="pKorr" type="number" step="0.01" placeholder="z. B. -5,00">
+      </div>
+      <div class="field">
+        <label for="pVat">MwSt (für Brutto-Anzeige)</label>
+        <select id="pVat">
+          <option value="19">19 %</option>
+          <option value="7">7 % (ESN / Kaffee)</option>
+        </select>
+      </div>
     </div>
     <div class="checkrow">
       <label><input type="checkbox" id="pDelivered"> Erfolgreich zugestellt</label>
@@ -329,7 +346,7 @@
         <thead>
           <tr>
             <th>Datum</th><th>ASIN / Produkt</th><th>Account</th>
-            <th class="num">EK</th><th class="num">VK</th>
+            <th class="num">EK</th><th class="num">Brutto-EK</th><th class="num">VK</th>
             <th class="num">Differenz</th><th class="num">Netto-Diff.</th>
             <th>Status</th><th></th>
           </tr>
@@ -481,6 +498,7 @@ function migrate(){
     if(p.asin === undefined) p.asin = "";
     if(p.orderId === undefined) p.orderId = "";
     if(p.reNr === undefined) p.reNr = "";
+    if(p.vat === undefined) p.vat = /esn|kaffee|7\s*%/i.test(p.name || "") ? 7 : 19;
     if(p.buyPrice === undefined) p.buyPrice = 0;
     if(p.korrektur === undefined) p.korrektur = 0;
     if(p.delivered === undefined) p.delivered = false;
@@ -662,7 +680,7 @@ function accStats(a){
 
 /* ---------- Rendering ---------- */
 function render(){
-  renderSummary(); renderAccOverview(); renderAccounts(); renderAccountSelects(); renderProducts(); renderPayments(); renderMonths(); updateCutPreview();
+  renderSummary(); renderAccOverview(); renderAccounts(); renderAccountSelects(); renderProducts(); renderPayments(); renderMonths(); renderInbox(); updateCutPreview();
 }
 
 function renderSummary(){
@@ -755,6 +773,26 @@ function setSelectedAccounts(ids){
   });
   updateAccountBtn();
 }
+function updatePerAccFields(){
+  var ids = getSelectedAccounts();
+  var wrap = $("perAccWrap"), single = $("singleNrRow");
+  var multi = ids.length > 1 && !editProdId;
+  if(!multi){ wrap.hidden = true; single.hidden = false; return; }
+  var prev = {};
+  wrap.querySelectorAll(".pa-order").forEach(function(i){ (prev[i.dataset.acc] = prev[i.dataset.acc] || {}).o = i.value; });
+  wrap.querySelectorAll(".pa-re").forEach(function(i){ (prev[i.dataset.acc] = prev[i.dataset.acc] || {}).r = i.value; });
+  $("perAccList").innerHTML = ids.map(function(id){
+    var a = accById(id), pv = prev[id] || {};
+    var nm = a ? esc(a.name) : "?";
+    return '<div class="row2" style="margin-bottom:0.4rem;">' +
+      '<div class="field" style="margin:0;"><label>Bestellnummer – ' + nm + '</label>' +
+      '<input class="pa-order" data-acc="' + id + '" value="' + esc(pv.o || "") + '" placeholder="302-…"></div>' +
+      '<div class="field" style="margin:0;"><label>RE-Nummer – ' + nm + '</label>' +
+      '<input class="pa-re" data-acc="' + id + '" value="' + esc(pv.r || "") + '" placeholder="RE…"></div>' +
+    '</div>';
+  }).join("");
+  wrap.hidden = false; single.hidden = true;
+}
 function updateAccountBtn(){
   var names = getSelectedAccounts().map(function(id){
     var a = accById(id); return a ? a.name : "?";
@@ -773,7 +811,7 @@ $("pAccountBtn").onclick = function(e){
   $("pAccountDrop").hidden = !$("pAccountDrop").hidden;
 };
 $("pAccountDrop").addEventListener("click", function(e){ e.stopPropagation(); });
-$("pAccountDrop").addEventListener("change", updateAccountBtn);
+$("pAccountDrop").addEventListener("change", function(){ updateAccountBtn(); updatePerAccFields(); });
 document.addEventListener("click", function(){
   if(!$("pAccountDrop").hidden) $("pAccountDrop").hidden = true;
 });
@@ -814,6 +852,7 @@ function renderProducts(){
       '<td class="strike">' + prodCell + '</td>' +
       '<td>' + (a ? esc(a.name) : "?") + '</td>' +
       '<td class="num">' + fmt(Number(p.buyPrice||0)) + '</td>' +
+      '<td class="num" title="netto × ' + (p.vat||19) + ' %">' + fmt(Number(p.buyPrice||0) * (1 + (p.vat||19)/100)) + '</td>' +
       '<td class="num">' + fmt(Number(p.price||0)) + '</td>' +
       '<td class="num ' + (d >= 0 ? '' : 'negv') + '">' + fmt(d) + '</td>' +
       '<td class="num ' + (nd >= 0 ? 'pos' : 'negv') + '">' + fmt(nd) + '</td>' +
@@ -827,6 +866,7 @@ function renderProducts(){
   $("prodFoot").innerHTML = list.length
     ? '<tr><td colspan="3">Summe (gefiltert, ohne Stornos)</td>' +
       '<td class="num">' + fmt(act.reduce(function(s,p){ return s + Number(p.buyPrice||0); }, 0)) + '</td>' +
+      '<td class="num">' + fmt(act.reduce(function(s,p){ return s + Number(p.buyPrice||0) * (1 + (p.vat||19)/100); }, 0)) + '</td>' +
       '<td class="num">' + fmt(act.reduce(function(s,p){ return s + Number(p.price||0); }, 0)) + '</td>' +
       '<td class="num">' + fmt(act.reduce(function(s,p){ return s + diff(p); }, 0)) + '</td>' +
       '<td class="num">' + fmt(act.reduce(function(s,p){ return s + nettoDiff(p); }, 0)) + '</td>' +
@@ -962,18 +1002,28 @@ $("btnProdSave").onclick = function(){
   var korr = parseFloat($("pKorr").value);
   if(!isFinite(korr)) korr = 0;
   var base = {
-    asin: asin, name: name, orderId: $("pOrder").value.trim(), reNr: $("pReNr").value.trim(),
+    asin: asin, name: name,
     date: $("pDate").value || today(),
     buyPrice: buy, price: price, korrektur: korr,
+    vat: parseInt($("pVat").value, 10) || 19,
     delivered: $("pDelivered").checked,
     invoiced: $("pInvoiced").checked
   };
+  var multi = !editProdId && accIds.length > 1;
+  var perAcc = {};
+  if(multi){
+    document.querySelectorAll("#perAccList .pa-order").forEach(function(i){ (perAcc[i.dataset.acc] = perAcc[i.dataset.acc] || {}).o = i.value.trim(); });
+    document.querySelectorAll("#perAccList .pa-re").forEach(function(i){ (perAcc[i.dataset.acc] = perAcc[i.dataset.acc] || {}).r = i.value.trim(); });
+  }
   if(editProdId){
     var p = state.products.find(function(x){ return x.id === editProdId; });
-    Object.assign(p, base, { accountId: accIds[0] });
+    Object.assign(p, base, { accountId: accIds[0], orderId: $("pOrder").value.trim(), reNr: $("pReNr").value.trim() });
   } else {
     accIds.forEach(function(aid){
-      state.products.push(Object.assign({ id: uid(), status: "aktiv", accountId: aid }, base));
+      var nums = multi
+        ? { orderId: (perAcc[aid] && perAcc[aid].o) || "", reNr: (perAcc[aid] && perAcc[aid].r) || "" }
+        : { orderId: $("pOrder").value.trim(), reNr: $("pReNr").value.trim() };
+      state.products.push(Object.assign({ id: uid(), status: "aktiv", accountId: aid }, base, nums));
     });
   }
   resetProdForm(); save(); render();
@@ -985,7 +1035,10 @@ function resetProdForm(){
   editProdId = null;
   ["pAsin","pName","pOrder","pReNr","pBuy","pPrice","pKorr"].forEach(function(id){ $(id).value = ""; });
   $("pDate").value = today();
+  $("pVat").value = "19";
+  $("perAccList").innerHTML = ""; $("perAccWrap").hidden = true; $("singleNrRow").hidden = false;
   setSelectedAccounts([]);
+  updatePerAccFields();
   $("pDelivered").checked = false;
   $("pInvoiced").checked = false;
   $("prodFormTitle").textContent = "Produkt eintragen";
@@ -999,6 +1052,8 @@ window.editProduct = function(id){
   $("pAsin").value = p.asin || ""; $("pName").value = p.name || "";
   $("pOrder").value = p.orderId || "";
   $("pReNr").value = p.reNr || "";
+  $("pVat").value = String(p.vat || 19);
+  updatePerAccFields();
   setSelectedAccounts([p.accountId]); $("pDate").value = p.date || "";
   $("pBuy").value = p.buyPrice; $("pPrice").value = p.price;
   $("pKorr").value = p.korrektur || "";
@@ -1127,6 +1182,53 @@ var syncCfg = null, syncDocRef = null, syncActive = false;
 var clientId = uid();
 var syncPushTimer = null;
 
+var inboxOrders = {}, inboxRef = null;
+function renderInbox(){
+  var known = {};
+  state.products.forEach(function(p){ if(p.orderId) known[p.orderId.trim()] = true; });
+  var ids = Object.keys(inboxOrders).filter(function(k){ return !known[k]; });
+  ids.sort(function(a,b){ return Number(inboxOrders[b].ts||0) - Number(inboxOrders[a].ts||0); });
+  $("inboxPanel").hidden = ids.length === 0;
+  $("inboxList").innerHTML = ids.map(function(oid){
+    var o = inboxOrders[oid];
+    return '<div class="acc" style="margin-bottom:0.6rem;">' +
+      '<div class="top"><span class="name">' + esc(o.item || "Amazon-Kauf") + '</span>' +
+      '<span class="small muted">' + esc(o.account || "?") + '</span></div>' +
+      '<div class="small muted" style="margin-top:0.3rem;">Nr. ' + esc(oid) +
+      (o.date ? ' · ' + fmtDate(o.date) : '') +
+      (o.total ? ' · Brutto: ' + fmt(Number(o.total)) : '') + '</div>' +
+      '<div class="btns">' +
+        '<button class="tiny primary" onclick="inboxTake(\'' + esc(oid) + '\', 1.19)">Übernehmen (19 %)</button>' +
+        '<button class="tiny" onclick="inboxTake(\'' + esc(oid) + '\', 1.07)">Übernehmen (7 %)</button>' +
+        '<button class="tiny danger" onclick="inboxIgnore(\'' + esc(oid) + '\')">Ignorieren</button>' +
+      '</div></div>';
+  }).join("");
+}
+function inboxRemove(oid){
+  delete inboxOrders[oid];
+  renderInbox();
+  if(inboxRef) inboxRef.set({ orders: inboxOrders }).catch(function(){});
+}
+window.inboxTake = function(oid, rate){
+  var o = inboxOrders[oid]; if(!o) return;
+  resetProdForm();
+  $("pOrder").value = oid;
+  if(o.date) $("pDate").value = o.date;
+  if(o.item) $("pName").value = o.item;
+  if(o.total) $("pBuy").value = (Number(o.total) / rate).toFixed(2);
+  $("pVat").value = rate === 1.07 ? "7" : "19";
+  var acc = state.accounts.find(function(a){
+    return a.name.trim().toLowerCase() === String(o.account||"").trim().toLowerCase();
+  });
+  if(acc) setSelectedAccounts([acc.id]);
+  updateCutPreview();
+  inboxRemove(oid);
+  $("pPrice").focus();
+};
+window.inboxIgnore = function(oid){
+  if(!confirm("Diesen erkannten Kauf ignorieren?")) return;
+  inboxRemove(oid);
+};
 var stornoOrders = {};
 function applyStorno(){
   var changed = false;
@@ -1181,6 +1283,12 @@ function initSync(){
       syncActive = false;
       setSyncStatus("Cloud-Sync Fehler: " + err.message);
     });
+    inboxRef = db.collection("workspaces").doc(syncCfg.workspace + "__inbox");
+    inboxRef.onSnapshot(function(doc){
+      var d = doc.data();
+      inboxOrders = (d && d.orders) ? d.orders : {};
+      renderInbox();
+    }, function(){ /* Inbox optional */ });
     db.collection("workspaces").doc(syncCfg.workspace + "__storno").onSnapshot(function(doc){
       var d = doc.data();
       stornoOrders = {};
