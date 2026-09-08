@@ -1184,6 +1184,7 @@ var syncPushTimer = null;
 
 var inboxOrders = {}, inboxRef = null;
 function renderInbox(){
+  if(typeof inboxOrders === "undefined" || !inboxOrders) inboxOrders = {};
   var known = {};
   state.products.forEach(function(p){ if(p.orderId) known[p.orderId.trim()] = true; });
   var ids = Object.keys(inboxOrders).filter(function(k){ return !known[k]; });
