@@ -1362,8 +1362,6 @@ window.genInvoice = function(pid){
   if(!p.reNr) p.reNr = nextReNr(p.accountId);
 
   loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js").then(function(){
-    return a.iban ? loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js").catch(function(){}) : null;
-  }).then(function(){
     var doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
     var netto = Number(p.price || 0);
     var vat = Number(p.vat || 19);
@@ -1441,38 +1439,17 @@ window.genInvoice = function(pid){
     doc.text("Zahlbar sofort", 20, fy); fy += 6;
     doc.text("Vielen Dank für Ihren Einkauf!", 20, fy); fy += 10;
 
-    // QR-Code (GiroCode), wenn IBAN vorhanden
-    if(a.iban && window.QRCode){
-      try{
-        var epc = "BCD\n002\n1\nSCT\n" + ((a.bic || "").split(",")[0].trim()) + "\n" +
-                  a.name + "\n" + a.iban + "\nEUR" + brutto.toFixed(2) + "\n\n\nRechnung " + p.reNr;
-        var tmp = document.createElement("div");
-        tmp.style.position = "fixed"; tmp.style.left = "-9999px";
-        document.body.appendChild(tmp);
-        new window.QRCode(tmp, { text: epc, width: 128, height: 128, correctLevel: window.QRCode.CorrectLevel.M });
-        var cv = tmp.querySelector("canvas");
-        if(cv){
-          doc.setDrawColor(150); doc.rect(20, fy, 80, 26);
-          doc.setFont("helvetica", "bold"); doc.text("Überweisen per Code", 24, fy + 8);
-          doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
-          doc.text("Ganz bequem Code mit der", 24, fy + 14);
-          doc.text("Banking-App scannen.", 24, fy + 18);
-          doc.addImage(cv.toDataURL("image/png"), "PNG", 74, fy + 2, 22, 22);
-        }
-        document.body.removeChild(tmp);
-      }catch(e){}
-    }
-
     // Fusszeile (3 Spalten)
     doc.setFontSize(7.5); doc.setTextColor(90);
     var f1 = addrLines.slice();
     if(a.tel) f1.push("Tel.: " + a.tel);
     if(a.mail) f1.push(a.mail);
+    var fullName = addrLines[0];
     var f2 = [];
     if(a.ustId) f2.push("USt-IdNr.: " + a.ustId);
     if(a.stNr) f2.push("Steuernummer: " + a.stNr);
-    f2.push(a.name);
-    var f3 = [a.name];
+    f2.push(fullName);
+    var f3 = [fullName];
     if(a.bic && a.bic.indexOf(",") !== -1) f3.push(a.bic.split(",")[1].trim());
     if(a.iban) f3.push("IBAN: " + a.iban.replace(/(.{4})/g, "$1 ").trim());
     if(a.bic) f3.push("BIC: " + a.bic.split(",")[0].trim());
