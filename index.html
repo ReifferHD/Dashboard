@@ -448,14 +448,6 @@
 
 <section class="tab" id="tab-accounts">
   <div class="panel narrow" style="margin-bottom:1.25rem;">
-    <h2>Rechnungsempfänger (für automatische Rechnungen)</h2>
-    <div class="field">
-      <textarea id="recipAddr" rows="3" placeholder="Name / Firma&#10;Straße Hausnummer&#10;PLZ Ort"></textarea>
-    </div>
-    <button class="primary" id="btnRecipSave">Empfänger speichern</button>
-  </div>
-
-  <div class="panel narrow" style="margin-bottom:1.25rem;">
     <h2 id="accFormTitle">Account hinzufügen</h2>
     <div class="field">
       <label for="accName">Name des Accounts</label>
@@ -1228,12 +1220,6 @@ $("btnSetupLater").onclick = function(){
   $("setupBanner").hidden = true;
 };
 $("btnGrantLoad").onclick = grantAndLoad;
-$("btnRecipSave").onclick = function(){
-  state.settings.recipient = $("recipAddr").value.trim();
-  save();
-  alert("Rechnungsempfänger gespeichert.");
-};
-$("recipAddr").value = (state.settings && state.settings.recipient) || "";
 var rowInvTarget = null;
 window.rowInvUpload = function(pid){
   if(!fsDb || !syncActive){ alert("Für Rechnungs-Anhänge muss der Cloud-Sync aktiv sein."); return; }
@@ -1367,11 +1353,10 @@ window.genInvoice = function(pid){
   var p = state.products.find(function(x){ return x.id === pid; });
   if(!p) return;
   var a = accById(p.accountId);
-  var recip = (state.settings && state.settings.recipient || "").trim();
+  var recip = "Maximilian Ringel\nHübingerweg 26\n56323 Waldesch";
   if(!a || !(a.address || "").trim()){
     alert("Bitte zuerst im Reiter 'Accounts' die Adresse von " + (a ? a.name : "diesem Account") + " eintragen (Bearbeiten)."); return;
   }
-  if(!recip){ alert("Bitte zuerst im Reiter 'Accounts' den Rechnungsempfänger eintragen."); return; }
   if(!p.reNr) p.reNr = nextReNr(p.accountId);
 
   loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js").then(function(){
