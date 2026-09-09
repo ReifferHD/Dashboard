@@ -97,6 +97,12 @@
   }
 
   label{display:block; font-size:0.78rem; color:var(--ink-soft); margin-bottom:0.2rem;}
+  textarea{
+    width:100%; padding:0.45rem 0.55rem; font:inherit; font-size:0.9rem;
+    border:1px solid var(--line); border-radius:5px;
+    background:var(--panel-2); color:var(--ink); resize:vertical;
+  }
+  textarea::placeholder{color:#5E6F78;}
   input,select{
     width:100%; padding:0.45rem 0.55rem; font:inherit; font-size:0.9rem;
     border:1px solid var(--line); border-radius:5px;
@@ -314,16 +320,20 @@
     </div>
     <div class="row2">
       <div class="field">
-        <label for="pKorr">Mögliche Korrekturen (±€)</label>
-        <input id="pKorr" type="number" step="0.01" placeholder="z. B. -5,00">
+        <label for="pQty">Menge (für die Rechnung)</label>
+        <input id="pQty" type="number" min="1" step="1" value="1">
       </div>
       <div class="field">
-        <label for="pVat">MwSt (für Brutto-Anzeige)</label>
+        <label for="pVat">MwSt</label>
         <select id="pVat">
           <option value="19">19 %</option>
           <option value="7">7 % (ESN / Kaffee)</option>
         </select>
       </div>
+    </div>
+    <div class="field">
+      <label for="pKorr">Mögliche Korrekturen (±€)</label>
+      <input id="pKorr" type="number" step="0.01" placeholder="z. B. -5,00">
     </div>
     <div class="checkrow">
       <label><input type="checkbox" id="pDelivered"> Erfolgreich zugestellt</label>
@@ -438,10 +448,52 @@
 
 <section class="tab" id="tab-accounts">
   <div class="panel narrow" style="margin-bottom:1.25rem;">
+    <h2>Rechnungsempfänger (für automatische Rechnungen)</h2>
+    <div class="field">
+      <textarea id="recipAddr" rows="3" placeholder="Name / Firma&#10;Straße Hausnummer&#10;PLZ Ort"></textarea>
+    </div>
+    <button class="primary" id="btnRecipSave">Empfänger speichern</button>
+  </div>
+
+  <div class="panel narrow" style="margin-bottom:1.25rem;">
     <h2 id="accFormTitle">Account hinzufügen</h2>
     <div class="field">
       <label for="accName">Name des Accounts</label>
       <input id="accName" placeholder="z. B. Roman">
+    </div>
+    <div class="field">
+      <label for="accAddr">Adresse (steht als Aussteller auf der Rechnung)</label>
+      <textarea id="accAddr" rows="3" placeholder="Vorname Nachname&#10;Straße Hausnummer&#10;PLZ Ort"></textarea>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="accTel">Telefon</label>
+        <input id="accTel" placeholder="z. B. 015112345678">
+      </div>
+      <div class="field">
+        <label for="accMail">E-Mail</label>
+        <input id="accMail" placeholder="name@mail.de">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="accUst">USt-IdNr. (optional)</label>
+        <input id="accUst" placeholder="DE…">
+      </div>
+      <div class="field">
+        <label for="accStnr">Steuernummer (optional)</label>
+        <input id="accStnr" placeholder="22/138/…">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="accIban">IBAN (für QR-Code auf der Rechnung)</label>
+        <input id="accIban" placeholder="DE…">
+      </div>
+      <div class="field">
+        <label for="accBic">BIC / Bank</label>
+        <input id="accBic" placeholder="z. B. REVODEB2XXX, Revolut Bank">
+      </div>
     </div>
     <div style="display:flex; gap:0.5rem;">
       <button class="primary" id="btnAccSave">Account speichern</button>
@@ -504,12 +556,20 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ re
 /* Alte Datensaetze auf neue Felder heben */
 function migrate(){
   if(!Array.isArray(state.payments)) state.payments = [];
+  if(!state.settings || typeof state.settings !== "object") state.settings = { recipient: "" };
+  if(state.settings.recipient === undefined) state.settings.recipient = "";
+  state.accounts.forEach(function(a){
+    ["address","tel","mail","ustId","stNr","iban","bic"].forEach(function(k){
+      if(a[k] === undefined) a[k] = "";
+    });
+  });
   state.products.forEach(function(p){
     if(p.asin === undefined) p.asin = "";
     if(p.orderId === undefined) p.orderId = "";
     if(p.reNr === undefined) p.reNr = "";
     if(p.invFileId === undefined) p.invFileId = "";
     if(p.invFileName === undefined) p.invFileName = "";
+    if(p.qty === undefined) p.qty = 1;
     if(p.vat === undefined) p.vat = /esn|kaffee|7\s*%/i.test(p.name || "") ? 7 : 19;
     if(p.buyPrice === undefined) p.buyPrice = 0;
     if(p.korrektur === undefined) p.korrektur = 0;
@@ -871,6 +931,7 @@ function renderProducts(){
       '<td class="num ' + (nd >= 0 ? 'pos' : 'negv') + '">' + fmt(nd) + '</td>' +
       '<td>' + statusCell + '</td>' +
       '<td><div class="rowbtns">' + btns +
+        '<button class="tiny" onclick="genInvoice(\'' + p.id + '\')">RE erstellen</button>' +
         '<button class="tiny" onclick="rowInvUpload(\'' + p.id + '\')">' + (p.invFileId ? 'RE ersetzen' : 'RE hochladen') + '</button>' +
         '<button class="tiny" onclick="editProduct(\'' + p.id + '\')">Bearbeiten</button>' +
         '<button class="tiny danger" onclick="deleteProduct(\'' + p.id + '\')">Löschen</button>' +
@@ -956,10 +1017,16 @@ window.deletePayment = function(id){
 $("btnAccSave").onclick = function(){
   var name = $("accName").value.trim();
   if(!name){ alert("Bitte einen Namen eingeben."); return; }
+  var accData = {
+    address: $("accAddr").value.trim(), tel: $("accTel").value.trim(),
+    mail: $("accMail").value.trim(), ustId: $("accUst").value.trim(),
+    stNr: $("accStnr").value.trim(), iban: $("accIban").value.trim().replace(/\s+/g, ""),
+    bic: $("accBic").value.trim()
+  };
   if(editAccId){
-    var a = accById(editAccId); a.name = name;
+    var a = accById(editAccId); a.name = name; Object.assign(a, accData);
   } else {
-    state.accounts.push({ id: uid(), name: name });
+    state.accounts.push(Object.assign({ id: uid(), name: name }, accData));
   }
   resetAccForm(); save(); render();
 };
@@ -968,6 +1035,7 @@ $("btnAccCancel").onclick = resetAccForm;
 function resetAccForm(){
   editAccId = null;
   $("accName").value = "";
+  ["accAddr","accTel","accMail","accUst","accStnr","accIban","accBic"].forEach(function(id){ $(id).value = ""; });
   $("accFormTitle").textContent = "Account hinzufügen";
   $("btnAccSave").textContent = "Account speichern";
   $("btnAccCancel").hidden = true;
@@ -975,7 +1043,10 @@ function resetAccForm(){
 window.editAccount = function(id){
   var a = accById(id); if(!a) return;
   editAccId = id;
-  $("accName").value = a.name;
+  $("accName").value = a.name; $("accAddr").value = a.address || "";
+  $("accTel").value = a.tel || ""; $("accMail").value = a.mail || "";
+  $("accUst").value = a.ustId || ""; $("accStnr").value = a.stNr || "";
+  $("accIban").value = a.iban || ""; $("accBic").value = a.bic || "";
   $("accFormTitle").textContent = "Account bearbeiten";
   $("btnAccSave").textContent = "Änderungen speichern";
   $("btnAccCancel").hidden = false;
@@ -1020,6 +1091,7 @@ $("btnProdSave").onclick = function(){
     date: $("pDate").value || today(),
     buyPrice: buy, price: price, korrektur: korr,
     vat: parseInt($("pVat").value, 10) || 19,
+    qty: Math.max(1, parseInt($("pQty").value, 10) || 1),
     delivered: $("pDelivered").checked,
     invoiced: $("pInvoiced").checked
   };
@@ -1060,7 +1132,7 @@ function resetProdForm(){
   editProdId = null;
   ["pAsin","pName","pOrder","pReNr","pBuy","pPrice","pKorr"].forEach(function(id){ $(id).value = ""; });
   $("pDate").value = today();
-  $("pVat").value = "19";
+  $("pVat").value = "19"; $("pQty").value = "1";
   pendingInv = null; invRemove = false;
   $("invFileInfo").textContent = "keine Datei";
   $("btnInvClear").hidden = true;
@@ -1080,7 +1152,7 @@ window.editProduct = function(id){
   $("pAsin").value = p.asin || ""; $("pName").value = p.name || "";
   $("pOrder").value = p.orderId || "";
   $("pReNr").value = p.reNr || "";
-  $("pVat").value = String(p.vat || 19);
+  $("pVat").value = String(p.vat || 19); $("pQty").value = String(p.qty || 1);
   pendingInv = null; invRemove = false;
   $("invFileInfo").textContent = p.invFileName ? p.invFileName + " (gespeichert)" : "keine Datei";
   $("btnInvClear").hidden = !p.invFileId;
@@ -1156,6 +1228,12 @@ $("btnSetupLater").onclick = function(){
   $("setupBanner").hidden = true;
 };
 $("btnGrantLoad").onclick = grantAndLoad;
+$("btnRecipSave").onclick = function(){
+  state.settings.recipient = $("recipAddr").value.trim();
+  save();
+  alert("Rechnungsempfänger gespeichert.");
+};
+$("recipAddr").value = (state.settings && state.settings.recipient) || "";
 var rowInvTarget = null;
 window.rowInvUpload = function(pid){
   if(!fsDb || !syncActive){ alert("Für Rechnungs-Anhänge muss der Cloud-Sync aktiv sein."); return; }
@@ -1276,6 +1354,165 @@ function invDocRef(id){
 function deleteInvDoc(id){
   if(fsDb && id){ invDocRef(id).delete().catch(function(){}); }
 }
+function nextReNr(accId){
+  var max = 0;
+  state.products.forEach(function(p){
+    if(p.accountId !== accId) return;
+    var m = /^RE\s?(\d+)$/.exec((p.reNr || "").trim());
+    if(m) max = Math.max(max, parseInt(m[1], 10));
+  });
+  return "RE" + String(max + 1).padStart(4, "0");
+}
+window.genInvoice = function(pid){
+  var p = state.products.find(function(x){ return x.id === pid; });
+  if(!p) return;
+  var a = accById(p.accountId);
+  var recip = (state.settings && state.settings.recipient || "").trim();
+  if(!a || !(a.address || "").trim()){
+    alert("Bitte zuerst im Reiter 'Accounts' die Adresse von " + (a ? a.name : "diesem Account") + " eintragen (Bearbeiten)."); return;
+  }
+  if(!recip){ alert("Bitte zuerst im Reiter 'Accounts' den Rechnungsempfänger eintragen."); return; }
+  if(!p.reNr) p.reNr = nextReNr(p.accountId);
+
+  loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js").then(function(){
+    return a.iban ? loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js").catch(function(){}) : null;
+  }).then(function(){
+    var doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+    var netto = Number(p.price || 0);
+    var vat = Number(p.vat || 19);
+    var mwst = netto * vat / 100;
+    var brutto = netto + mwst;
+    var qty = Math.max(1, Number(p.qty || 1));
+    var einzel = brutto / qty;
+    function eur(n){ return n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    var addrLines = (a.address || "").split("\n").map(function(s){ return s.trim(); }).filter(Boolean);
+    if(!addrLines.length || addrLines[0].toLowerCase().indexOf(a.name.toLowerCase()) === -1) addrLines.unshift(a.name);
+
+    // Titel + Metadaten rechts
+    doc.setFont("helvetica", "bold"); doc.setFontSize(18);
+    doc.text("Rechnung", 190, 22, { align: "right" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+    doc.text("Rechnungsnr.:", 150, 32); doc.text(p.reNr, 190, 32, { align: "right" });
+    doc.text("Datum:", 150, 38); doc.text(new Date().toLocaleDateString("de-DE"), 190, 38, { align: "right" });
+
+    // Aussteller-Block rechts
+    var y = 50;
+    addrLines.forEach(function(l){ doc.text(l, 190, y, { align: "right" }); y += 5; });
+    if(a.tel) { doc.text("Tel.: " + a.tel, 190, y, { align: "right" }); y += 5; }
+    if(a.mail){ doc.text(a.mail, 190, y, { align: "right" }); y += 5; }
+
+    // Absenderzeile klein + Empfaenger links
+    doc.setFontSize(7.5); doc.setTextColor(90);
+    var absZeile = addrLines.join(", ");
+    doc.text(absZeile, 20, 52);
+    doc.setDrawColor(90); doc.line(20, 53, 20 + Math.min(doc.getTextWidth(absZeile), 85), 53);
+    doc.setFontSize(10); doc.setTextColor(0);
+    var ry = 60;
+    recip.split("\n").map(function(s){ return s.trim(); }).filter(Boolean).forEach(function(l){
+      doc.text(l, 20, ry); ry += 5;
+    });
+
+    // Einleitung
+    var ty = Math.max(ry + 14, 96);
+    doc.text("Unsere Lieferungen stellen wir Ihnen wie folgt in Rechnung.", 20, ty);
+    ty += 8;
+
+    // Tabelle
+    var bez = (p.name || p.asin || "Produkt") + (p.asin && p.name ? " (" + p.asin + ")" : "");
+    var bezLines = doc.splitTextToSize(bez, 84);
+    var rowH = Math.max(10, bezLines.length * 5 + 5);
+    var xs = [20, 32, 120, 138, 156, 190];
+    doc.setDrawColor(0);
+    doc.line(20, ty, 190, ty);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9.5);
+    doc.text("Pos.", 22, ty + 6); doc.text("Bezeichnung", 34, ty + 6);
+    doc.text("Menge", 129, ty + 6, { align: "center" });
+    doc.text("Einheit", 147, ty + 6, { align: "center" });
+    doc.text("Einzel €", 172, ty + 6, { align: "right" });
+    doc.text("Gesamt €", 188, ty + 6, { align: "right" });
+    doc.line(20, ty + 9, 190, ty + 9);
+    doc.setFont("helvetica", "normal");
+    var ry2 = ty + 15;
+    doc.text("1", 24, ry2);
+    doc.text(bezLines, 34, ry2);
+    doc.text(String(qty), 129, ry2, { align: "center" });
+    doc.text("Stück", 147, ry2, { align: "center" });
+    doc.text(eur(einzel), 172, ry2, { align: "right" });
+    doc.text(eur(brutto), 188, ry2, { align: "right" });
+    var by = ty + 9 + rowH;
+    doc.line(20, by, 190, by);
+    doc.setFont("helvetica", "bold");
+    doc.text("Gesamtbetrag*", 22, by + 6);
+    doc.text(eur(brutto), 188, by + 6, { align: "right" });
+    doc.line(20, by + 9, 190, by + 9);
+
+    // Steuerhinweis + Zahlungstext
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
+    var fy = by + 17;
+    doc.text("* Im Gesamtbetrag von " + eur(brutto) + " € (Netto: " + eur(netto) + " €) sind USt " + vat + " % (" + eur(mwst) + " €) enthalten.", 20, fy);
+    fy += 8;
+    doc.text("Zahlbar sofort", 20, fy); fy += 6;
+    doc.text("Vielen Dank für Ihren Einkauf!", 20, fy); fy += 10;
+
+    // QR-Code (GiroCode), wenn IBAN vorhanden
+    if(a.iban && window.QRCode){
+      try{
+        var epc = "BCD\n002\n1\nSCT\n" + ((a.bic || "").split(",")[0].trim()) + "\n" +
+                  a.name + "\n" + a.iban + "\nEUR" + brutto.toFixed(2) + "\n\n\nRechnung " + p.reNr;
+        var tmp = document.createElement("div");
+        tmp.style.position = "fixed"; tmp.style.left = "-9999px";
+        document.body.appendChild(tmp);
+        new window.QRCode(tmp, { text: epc, width: 128, height: 128, correctLevel: window.QRCode.CorrectLevel.M });
+        var cv = tmp.querySelector("canvas");
+        if(cv){
+          doc.setDrawColor(150); doc.rect(20, fy, 80, 26);
+          doc.setFont("helvetica", "bold"); doc.text("Überweisen per Code", 24, fy + 8);
+          doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
+          doc.text("Ganz bequem Code mit der", 24, fy + 14);
+          doc.text("Banking-App scannen.", 24, fy + 18);
+          doc.addImage(cv.toDataURL("image/png"), "PNG", 74, fy + 2, 22, 22);
+        }
+        document.body.removeChild(tmp);
+      }catch(e){}
+    }
+
+    // Fusszeile (3 Spalten)
+    doc.setFontSize(7.5); doc.setTextColor(90);
+    var f1 = addrLines.slice();
+    if(a.tel) f1.push("Tel.: " + a.tel);
+    if(a.mail) f1.push(a.mail);
+    var f2 = [];
+    if(a.ustId) f2.push("USt-IdNr.: " + a.ustId);
+    if(a.stNr) f2.push("Steuernummer: " + a.stNr);
+    f2.push(a.name);
+    var f3 = [a.name];
+    if(a.bic && a.bic.indexOf(",") !== -1) f3.push(a.bic.split(",")[1].trim());
+    if(a.iban) f3.push("IBAN: " + a.iban.replace(/(.{4})/g, "$1 ").trim());
+    if(a.bic) f3.push("BIC: " + a.bic.split(",")[0].trim());
+    var fy2 = 272;
+    f1.forEach(function(l, i){ doc.text(l, 20, fy2 + i * 3.6); });
+    f2.forEach(function(l, i){ doc.text(l, 85, fy2 + i * 3.6); });
+    f3.forEach(function(l, i){ doc.text(l, 145, fy2 + i * 3.6); });
+    doc.text("Seite 1/1", 105, 292, { align: "center" });
+    doc.setTextColor(0);
+
+    var fname = "Rechnung_" + p.reNr + ".pdf";
+    doc.save(fname);
+    if(fsDb && syncActive){
+      var b64 = doc.output("datauristring").split(",")[1];
+      var fid = uid();
+      invDocRef(fid).set({ name: fname, type: "application/pdf", data: b64, ts: Date.now() }).then(function(){
+        deleteInvDoc(p.invFileId);
+        p.invFileId = fid; p.invFileName = fname;
+        p.invoiced = true; save(); render();
+      }).catch(function(){ p.invoiced = true; save(); render(); });
+    } else {
+      p.invoiced = true; save(); render();
+    }
+  }).catch(function(){
+    alert("Rechnungs-Modul konnte nicht geladen werden (Internet nötig).");
+  });
+};
 window.openInvoice = function(pid){
   var p = state.products.find(function(x){ return x.id === pid; });
   if(!p || !p.invFileId) return;
