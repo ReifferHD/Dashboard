@@ -1145,11 +1145,9 @@ $("btnProdSave").onclick = function(){
     vat: parseInt($("pVat").value, 10) || 19,
     qty: Math.max(1, parseInt($("pQty").value, 10) || 1)
   }];
-  if(!editProdId){
-    var extra = readExtraPositions();
-    if(extra === null) return;
-    positions = positions.concat(extra);
-  }
+  var extra = readExtraPositions();
+  if(extra === null) return;
+  if(!editProdId) positions = positions.concat(extra);
   var common = {
     date: $("pDate").value || today(),
     delivered: $("pDelivered").checked,
@@ -1175,6 +1173,11 @@ $("btnProdSave").onclick = function(){
     Object.assign(p, base, { accountId: accIds[0], orderId: $("pOrder").value.trim(), reNr: $("pReNr").value.trim() });
     if(invRemove){ deleteInvDoc(p.invFileId); p.invFileId = ""; p.invFileName = ""; }
     if(newFileId){ deleteInvDoc(p.invFileId); p.invFileId = newFileId; p.invFileName = pendingInv.name; }
+    extra.forEach(function(pos){
+      state.products.push(Object.assign({ id: uid(), status: "aktiv", accountId: p.accountId,
+        orderId: p.orderId || "", reNr: p.reNr || "",
+        invFileId: p.invFileId || "", invFileName: p.invFileName || "" }, pos, common));
+    });
   } else {
     accIds.forEach(function(aid){
       var nums = multi
@@ -1217,7 +1220,7 @@ window.editProduct = function(id){
   $("pOrder").value = p.orderId || "";
   $("pReNr").value = p.reNr || "";
   $("pVat").value = String(p.vat || 19); $("pQty").value = String(p.qty || 1);
-  $("extraPosList").innerHTML = ""; $("extraPosWrap").hidden = true; $("addPosRow").hidden = true;
+  $("extraPosList").innerHTML = ""; $("extraPosWrap").hidden = true; $("addPosRow").hidden = false;
   pendingInv = null; invRemove = false;
   $("invFileInfo").textContent = p.invFileName ? p.invFileName + " (gespeichert)" : "keine Datei";
   $("btnInvClear").hidden = !p.invFileId;
