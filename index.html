@@ -1464,7 +1464,8 @@ window.genInvoice = function(pid){
     doc.text("Rechnung", 190, 22, { align: "right" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(10);
     doc.text("Rechnungsnr.:", 150, 32); doc.text(p.reNr, 190, 32, { align: "right" });
-    doc.text("Datum:", 150, 38); doc.text(new Date().toLocaleDateString("de-DE"), 190, 38, { align: "right" });
+    var reDatum = p.date ? new Date(p.date + "T00:00").toLocaleDateString("de-DE") : new Date().toLocaleDateString("de-DE");
+    doc.text("Datum:", 150, 38); doc.text(reDatum, 190, 38, { align: "right" });
 
     // Aussteller-Block rechts
     var y = 50;
@@ -1526,6 +1527,7 @@ window.genInvoice = function(pid){
     var hinweis = doc.splitTextToSize("* Im Gesamtbetrag von " + eur(sumBrutto) + " € (Netto: " + eur(sumNetto) + " €) sind " + vatParts + " enthalten.", 170);
     doc.text(hinweis, 20, fy);
     fy += hinweis.length * 5 + 3;
+    doc.text("Lieferdatum entspricht Rechnungsdatum", 20, fy); fy += 6;
     doc.text("Zahlbar sofort", 20, fy); fy += 6;
     doc.text("Vielen Dank für Ihren Einkauf!", 20, fy);
 
