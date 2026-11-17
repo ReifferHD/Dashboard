@@ -398,8 +398,11 @@
         <input id="kName" placeholder="z. B. Prime-Abo November">
       </div>
       <div class="field">
-        <label for="kAccount">Account</label>
-        <select id="kAccount"></select>
+        <label>Account(s)</label>
+        <div class="msel">
+          <button type="button" class="mselbtn placeholder" id="kAccountBtn">Accounts wählen …</button>
+          <div class="mseldrop" id="kAccountDrop" hidden></div>
+        </div>
       </div>
     </div>
     <div class="row2">
@@ -878,9 +881,14 @@ function renderAccountSelects(){
   var pcur = $("payAccount").value;
   $("payAccount").innerHTML = opts || '<option value="">- erst Account anlegen -</option>';
   if(pcur && accById(pcur)) $("payAccount").value = pcur;
-  var kcur = $("kAccount").value;
-  $("kAccount").innerHTML = opts || '<option value="">- erst Account anlegen -</option>';
-  if(kcur && accById(kcur)) $("kAccount").value = kcur;
+  var kchecked = getCostAccounts();
+  $("kAccountDrop").innerHTML = state.accounts.length
+    ? state.accounts.map(function(a){
+        return '<label class="mselopt"><input type="checkbox" value="' + a.id + '"' +
+          (kchecked.indexOf(a.id) !== -1 ? ' checked' : '') + '> ' + esc(a.name) + '</label>';
+      }).join("")
+    : '<div class="mselopt muted">Erst im Reiter Accounts anlegen</div>';
+  updateCostAccountBtn();
   var fkcur = $("fkAccount").value;
   $("fkAccount").innerHTML = '<option value="">Alle Accounts</option>' + opts;
   if(fkcur && accById(fkcur)) $("fkAccount").value = fkcur;
@@ -1030,6 +1038,31 @@ function renderPayments(){
     : "";
 }
 var editCostId = null;
+function getCostAccounts(){
+  var out = [];
+  var drop = $("kAccountDrop");
+  if(drop){ drop.querySelectorAll("input:checked").forEach(function(i){ out.push(i.value); }); }
+  return out;
+}
+function setCostAccounts(ids){
+  $("kAccountDrop").querySelectorAll("input").forEach(function(i){
+    i.checked = ids.indexOf(i.value) !== -1;
+  });
+  updateCostAccountBtn();
+}
+function updateCostAccountBtn(){
+  var names = getCostAccounts().map(function(id){
+    var a = accById(id); return a ? a.name : "?";
+  });
+  var btn = $("kAccountBtn");
+  if(names.length){
+    btn.textContent = names.join(", ");
+    btn.classList.remove("placeholder");
+  } else {
+    btn.textContent = "Accounts wählen …";
+    btn.classList.add("placeholder");
+  }
+}
 function renderCosts(){
   var fa = $("fkAccount").value;
   var list = state.costs.filter(function(x){ return !fa || x.accountId === fa; })
@@ -1056,6 +1089,7 @@ function renderCosts(){
 function resetCostForm(){
   editCostId = null;
   $("kName").value = ""; $("kAmount").value = "";
+  setCostAccounts([]);
   $("kDate").value = today();
   $("costFormTitle").textContent = "Kosten eintragen";
   $("btnCostSave").textContent = "Kosten speichern";
@@ -1064,7 +1098,7 @@ function resetCostForm(){
 window.editCost = function(id){
   var x = state.costs.find(function(c){ return c.id === id; }); if(!x) return;
   editCostId = id;
-  $("kName").value = x.name || ""; $("kAccount").value = x.accountId;
+  $("kName").value = x.name || ""; setCostAccounts([x.accountId]);
   $("kDate").value = x.date || ""; $("kAmount").value = x.amount;
   $("costFormTitle").textContent = "Kosten bearbeiten";
   $("btnCostSave").textContent = "Änderungen speichern";
@@ -1482,19 +1516,32 @@ $("payDate").value = today();
 $("kDate").value = today();
 $("btnCostSave").onclick = function(){
   var name = $("kName").value.trim();
-  var accountId = $("kAccount").value;
+  var accIds = getCostAccounts();
   var amount = parseFloat($("kAmount").value);
   if(!name){ alert("Bitte eine Beschreibung eingeben."); return; }
-  if(!accountId || !accById(accountId)){ alert("Bitte einen Account auswählen."); return; }
+  if(!accIds.length){ alert("Bitte mindestens einen Account auswählen."); return; }
+  if(editCostId && accIds.length > 1){ alert("Beim Bearbeiten bitte nur einen Account auswählen."); return; }
   if(!isFinite(amount) || amount <= 0){ alert("Bitte einen gültigen Betrag eingeben."); return; }
+  var date = $("kDate").value || today();
   if(editCostId){
     var x = state.costs.find(function(c){ return c.id === editCostId; });
-    Object.assign(x, { name: name, accountId: accountId, date: $("kDate").value || today(), amount: amount });
+    Object.assign(x, { name: name, accountId: accIds[0], date: date, amount: amount });
   } else {
-    state.costs.push({ id: uid(), name: name, accountId: accountId, date: $("kDate").value || today(), amount: amount });
+    accIds.forEach(function(aid){
+      state.costs.push({ id: uid(), name: name, accountId: aid, date: date, amount: amount });
+    });
   }
   resetCostForm(); save(); render();
 };
+$("kAccountBtn").onclick = function(e){
+  e.stopPropagation();
+  $("kAccountDrop").hidden = !$("kAccountDrop").hidden;
+};
+$("kAccountDrop").addEventListener("click", function(e){ e.stopPropagation(); });
+$("kAccountDrop").addEventListener("change", updateCostAccountBtn);
+document.addEventListener("click", function(){
+  if(!$("kAccountDrop").hidden) $("kAccountDrop").hidden = true;
+});
 $("btnCostCancel").onclick = resetCostForm;
 $("fkAccount").addEventListener("change", renderCosts);
 (function(){
